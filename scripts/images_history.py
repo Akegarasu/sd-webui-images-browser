@@ -5,19 +5,26 @@ import stat
 import gradio as gr
 import modules.extras
 import modules.ui
+import json
+import re
 from modules.shared import opts, cmd_opts
 from modules import shared, scripts
 from modules import script_callbacks
 from pathlib import Path
 from typing import List, Tuple
+from PIL.ExifTags import TAGS
+from PIL.PngImagePlugin import PngImageFile, PngInfo
 
 faverate_tab_name = "Favorites"
-tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
+tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Rankings", "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
 num_of_imgs_per_page = 0
 loads_files_num = 0
 path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
-
+cur_ranking_value="0"
+aes_cache = {}
+finfo_aes = {}
+        
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
         name, ext = os.path.splitext(basename)
@@ -48,6 +55,21 @@ def save_image(file_name):
         return "<div style='color:#999'>Moved to favorites</div>"
     else:
         return "<div style='color:#999'>Image not found (may have been already moved)</div>"
+
+def create_ranked_file(filename, ranking):
+    ranking_file = 'ranking.json'
+
+    if not os.path.isfile(ranking_file):
+        data = {}
+        
+    else:
+        with open(ranking_file, 'r') as file:
+            data = json.load(file)
+
+    data[filename] = ranking
+
+    with open(ranking_file, 'w') as file:
+        json.dump(data, file)
 
 def delete_image(delete_num, name, filenames, image_index, visible_num):
     if name == "":
@@ -93,22 +115,78 @@ def traverse_all_files(curr_path, image_list) -> List[Tuple[str, os.stat_result]
     return image_list
 
 
-def get_all_images(dir_name, sort_by, keyword):
+def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc):
     fileinfos = traverse_all_files(dir_name, [])
     keyword = keyword.strip(" ")
+    
     if len(keyword) != 0:
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
-    if sort_by == "date":
-        fileinfos = sorted(fileinfos, key=lambda x: -x[1].st_mtime)
-    elif sort_by == "path name":
-        fileinfos = sorted(fileinfos)
+        filenames = [finfo[0] for finfo in fileinfos]
+    if len(aes_filter) != 0:
+        for fi_info in fileinfos:
+            if fi_info[0] not in finfo_aes:       
+                finfo_aes[fi_info[0]] = "0"
+                try:
+                    image = PngImageFile(fi_info[0])
+                    allExif = modules.extras.run_pnginfo(image)[1]
+                    m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
+                    if m:
+                        finfo_aes[fi_info[0]] = m.group(1)
+                except SyntaxError:
+                        print(f"Non-PNG file in directory")                
+        fileinfos = [x for x in fileinfos if finfo_aes[x[0]] >= aes_filter]
+        filenames = [finfo[0] for finfo in fileinfos]
+    if ranking_filter != "All":
+        fileinfos = [x for x in fileinfos if get_ranking(x[0]) in ranking_filter]
+        filenames = [finfo[0] for finfo in fileinfos]
 
-    filenames = [finfo[0] for finfo in fileinfos]
+    if sort_by == "date":
+        if not desc:
+            fileinfos = sorted(fileinfos, key=lambda x: -x[1].st_mtime)
+        else:
+            fileinfos = reversed(sorted(fileinfos, key=lambda x: -x[1].st_mtime))
+        filenames = [finfo[0] for finfo in fileinfos]
+    elif sort_by == "path name":
+
+        if not desc:
+            fileinfos = sorted(fileinfos)
+        else:
+            fileinfos = reversed(sorted(fileinfos))
+        filenames = [finfo[0] for finfo in fileinfos]
+    elif sort_by == "ranking":
+        finfo_ranked = {}
+        for fi_info in fileinfos:
+            finfo_ranked[fi_info[0]] = get_ranking(fi_info[0])
+        if not desc:
+            fileinfos = dict(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0])))
+        else:
+            fileinfos = dict(reversed(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0]))))
+        filenames = [finfo for finfo in fileinfos]
+    elif sort_by == "aes":
+        for fi_info in fileinfos:
+            try:
+                if fi_info[0] not in finfo_aes:
+                    finfo_aes[fi_info[0]] = "0"
+                    image = PngImageFile(fi_info[0])
+                    allExif = modules.extras.run_pnginfo(image)[1]
+                    m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
+                    if m:
+                        finfo_aes[fi_info[0]] = m.group(1)
+            except SyntaxError:
+                print(f"Non-PNG file in directory")
+
+        if desc:
+            fileinfos = dict(reversed(sorted(finfo_aes.items(), key=lambda x: (x[1], x[0]))))
+        else:
+            fileinfos = dict(sorted(finfo_aes.items(), key=lambda x: (x[1], x[0])))
+        filenames = [finfo for finfo in fileinfos]
+        
+    
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc):
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, keyword)
+        filenames = get_all_images(img_path, sort_by, keyword, ranking_filter, aes_filter, desc)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -126,9 +204,21 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by):
     load_info += "</div>"
     return filenames, page_index, image_list,  "", "",  "", visible_num, load_info
 
+
+def get_current_file(tabname_box, num, page_index, filenames):
+    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
+    return file
+    
 def show_image_info(tabname_box, num, page_index, filenames):
-    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]   
+    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
     tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
+    return file, tm, num, file, ""
+
+def show_next_image_info(tabname_box, num, page_index, filenames, auto_next):
+    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
+    tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
+    if auto_next:
+        num = int(num) + 1
     return file, tm, num, file, ""
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_history):
@@ -165,6 +255,17 @@ def change_dir(img_dir, path_recorder, load_switch, img_path_history):
         return "", gr.update(visible=True), gr.Dropdown.update(choices=path_recorder, value=img_dir), path_recorder, img_dir
     else:
         return warning, gr.update(visible=False), img_path_history, path_recorder, load_switch
+
+def get_ranking(filename):
+    ranking_file = 'ranking.json'
+    ranking_value = "None"
+    if os.path.isfile(ranking_file):
+        with open(ranking_file, 'r') as file:
+            data = json.load(file)
+            if filename in data:
+                ranking_value = data[filename]
+                
+    return ranking_value
 
 def create_tab(tabname):
     custom_dir = False
@@ -204,24 +305,32 @@ def create_tab(tabname):
     with gr.Row(visible= not custom_dir, elem_id=tabname + "_images_history") as main_panel:
         with gr.Column():  
             with gr.Row():    
-                with gr.Column(scale=2):     
+                with gr.Column(scale=2):    
                     with gr.Row():       
                         first_page = gr.Button('First Page')
                         prev_page = gr.Button('Prev Page')
                         page_index = gr.Number(value=1, label="Page Index")
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
+                    with gr.Column(scale=10):                            
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive="true")
+                        auto_next = gr.Checkbox(label="Next Image After Ranking")
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
+                    
                     with gr.Row() as delete_panel:
                         with gr.Column(scale=1):
                             delete_num = gr.Number(value=1, interactive=True, label="delete next")
                         with gr.Column(scale=3):
                             delete = gr.Button('Delete', elem_id=tabname + "_images_history_del_button")
-                        
+                
                 with gr.Column(): 
                     with gr.Row():  
-                        sort_by = gr.Radio(value="date", choices=["path name", "date"], label="sort by")   
-                        keyword = gr.Textbox(value="", label="keyword")                 
+                        sort_by = gr.Radio(value="date", choices=["path name", "date", "ranking", "aes"], label="sort by")   
+                        keyword = gr.Textbox(value="", label="keyword")
+                        desc = gr.Checkbox(label="Descending")
+                    with gr.Column():
+                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive="true")
+                        aes_filter = gr.Textbox(value="", label="minimum aesthetic_score")
                     with gr.Row():
                         with gr.Column():
                             img_file_info = gr.Textbox(label="Generate Info", interactive=False, lines=6)
@@ -235,7 +344,8 @@ def create_tab(tabname):
                         except:
                             pass
                     with gr.Row():
-                        collected_warning = gr.HTML()                       
+                        collected_warning = gr.HTML()
+                    
                             
                     # hiden items
                     with gr.Row(visible=False): 
@@ -259,6 +369,8 @@ def create_tab(tabname):
     img_path_history.change(change_dir, inputs=[img_path_history, path_recorder, load_switch, img_path_history], outputs=change_dir_outputs)
     img_path_history.change(lambda x:x, inputs=[img_path_history], outputs=[img_path])
 
+    
+    
     #delete
     delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num])
     delete.click(fn=None, _js="images_history_delete", inputs=[delete_num, tabname_box, image_index], outputs=None) 
@@ -272,29 +384,45 @@ def create_tab(tabname):
     end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])    
     load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     keyword.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    aes_filter.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    ranking_filter.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     page_index.submit(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
     renew_page.click(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
-
+    desc.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+        
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, keyword, sort_by], 
+        inputs=[img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc], 
         outputs=[filenames, page_index, history_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box]
     )
     turn_page_switch.change(fn=None, inputs=[tabname_box], outputs=None, _js="images_history_turnpage")
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel])
 
     # other funcitons
+    
     set_index.click(show_image_info, _js="images_history_get_current_img", inputs=[tabname_box, image_index, page_index, filenames], outputs=[img_file_name, img_file_time, image_index, hidden])
-    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel]) 
-    img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])  
+    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel])
+    img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
+    img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
+
    
     hidden.change(fn=modules.extras.run_pnginfo, inputs=[hidden], outputs=[info1, img_file_info, info2])
-
+    
+    #ranking
+    ranking.change(create_ranked_file, inputs=[img_file_name, ranking])
+    #ranking.change(show_next_image_info, _js="images_history_get_current_img", inputs=[tabname_box, image_index, page_index, auto_next], outputs=[img_file_name, img_file_time, image_index, hidden])
+    
+    
     try:
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, img_file_name, img_file_info)
     except:
         pass
+
+
+
+           
+
 
 def on_ui_tabs():
     global num_of_imgs_per_page
@@ -302,7 +430,7 @@ def on_ui_tabs():
     num_of_imgs_per_page = int(opts.images_history_page_columns * opts.images_history_page_rows)
     loads_files_num = int(opts.images_history_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as images_history:
-        with gr.Tabs(elem_id="images_history_tab") as tabs:
+        with gr.Tabs(elem_id="images_history_tab)") as tabs:
             for tab in tabs_list:
                 with gr.Tab(tab):
                     with gr.Blocks(analytics_enabled=False) :

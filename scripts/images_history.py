@@ -16,7 +16,7 @@ from PIL.ExifTags import TAGS
 from PIL.PngImagePlugin import PngImageFile, PngInfo
 
 faverate_tab_name = "Favorites"
-tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Rankings", "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
+tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
 num_of_imgs_per_page = 0
 loads_files_num = 0
 path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
@@ -115,31 +115,53 @@ def traverse_all_files(curr_path, image_list) -> List[Tuple[str, os.stat_result]
     return image_list
 
 
+def cache_aes(fileinfos):
+    aes_cache_file = 'aes_scores.json'
+
+    aes_cache = {}
+    
+    if os.path.isfile(aes_cache_file):
+        with open(aes_cache_file, 'r') as file:
+            aes_cache = json.load(file)
+    else:
+        aes_cache["NoImage"] = 0
+        
+    for fi_info in fileinfos:
+        if fi_info[0] in aes_cache:
+            finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
+        else:       
+            finfo_aes[fi_info[0]] = "0"
+            try:
+                image = PngImageFile(fi_info[0])
+                allExif = modules.extras.run_pnginfo(image)[1]
+                m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
+                if m:
+                    finfo_aes[fi_info[0]] = m.group(1)
+            except SyntaxError:
+                print(f"Non-PNG file in directory: {fi_info[0]}")
+
+    with open(aes_cache_file, 'w') as file:
+        json.dump(aes_cache, file)
+
+    
+
 def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc):
     fileinfos = traverse_all_files(dir_name, [])
     keyword = keyword.strip(" ")
+
+    finfo_aes_list = finfo_aes;
+    
+    cache_aes(fileinfos)
     
     if len(keyword) != 0:
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
         filenames = [finfo[0] for finfo in fileinfos]
     if len(aes_filter) != 0:
-        for fi_info in fileinfos:
-            if fi_info[0] not in finfo_aes:       
-                finfo_aes[fi_info[0]] = "0"
-                try:
-                    image = PngImageFile(fi_info[0])
-                    allExif = modules.extras.run_pnginfo(image)[1]
-                    m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
-                    if m:
-                        finfo_aes[fi_info[0]] = m.group(1)
-                except SyntaxError:
-                        print(f"Non-PNG file in directory")                
         fileinfos = [x for x in fileinfos if finfo_aes[x[0]] >= aes_filter]
-        filenames = [finfo[0] for finfo in fileinfos]
+        filenames = [finfo[0] for finfo in fileinfos]   
     if ranking_filter != "All":
         fileinfos = [x for x in fileinfos if get_ranking(x[0]) in ranking_filter]
         filenames = [finfo[0] for finfo in fileinfos]
-
     if sort_by == "date":
         if not desc:
             fileinfos = sorted(fileinfos, key=lambda x: -x[1].st_mtime)
@@ -147,7 +169,6 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc)
             fileinfos = reversed(sorted(fileinfos, key=lambda x: -x[1].st_mtime))
         filenames = [finfo[0] for finfo in fileinfos]
     elif sort_by == "path name":
-
         if not desc:
             fileinfos = sorted(fileinfos)
         else:
@@ -163,24 +184,15 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc)
             fileinfos = dict(reversed(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0]))))
         filenames = [finfo for finfo in fileinfos]
     elif sort_by == "aes":
-        for fi_info in fileinfos:
-            try:
-                if fi_info[0] not in finfo_aes:
-                    finfo_aes[fi_info[0]] = "0"
-                    image = PngImageFile(fi_info[0])
-                    allExif = modules.extras.run_pnginfo(image)[1]
-                    m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
-                    if m:
-                        finfo_aes[fi_info[0]] = m.group(1)
-            except SyntaxError:
-                print(f"Non-PNG file in directory")
-
+        fileinfo_aes = {}
+        for finfo in fileinfos:
+            fileinfo_aes[finfo[0]] = finfo[1]
         if desc:
-            fileinfos = dict(reversed(sorted(finfo_aes.items(), key=lambda x: (x[1], x[0]))))
+            fileinfos = dict(reversed(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0]))))
         else:
-            fileinfos = dict(sorted(finfo_aes.items(), key=lambda x: (x[1], x[0])))
+            fileinfos = dict(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0])))
         filenames = [finfo for finfo in fileinfos]
-        
+     
     
     return filenames
 

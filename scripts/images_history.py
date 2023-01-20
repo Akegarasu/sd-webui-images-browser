@@ -186,7 +186,7 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc)
     elif sort_by == "aes":
         fileinfo_aes = {}
         for finfo in fileinfos:
-            fileinfo_aes[finfo[0]] = finfo[1]
+            fileinfo_aes[finfo[0]] = finfo_aes[finfo[0]]
         if desc:
             fileinfos = dict(reversed(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0]))))
         else:

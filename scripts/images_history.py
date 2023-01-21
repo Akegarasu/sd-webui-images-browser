@@ -15,6 +15,7 @@ from typing import List, Tuple
 from PIL.ExifTags import TAGS
 from PIL.PngImagePlugin import PngImageFile, PngInfo
 
+
 faverate_tab_name = "Favorites"
 tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
 num_of_imgs_per_page = 0
@@ -168,7 +169,23 @@ def cache_exif(fileinfos):
 
     with open(exif_cache_file, 'w') as file:
         json.dump(exif_cache, file)
-    
+
+def atof(text):
+    try:
+        retval = float(text)
+    except ValueError:
+        retval = text
+    return retval
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    float regex comes from https://stackoverflow.com/a/12643073/190597
+    '''
+    return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
+
 
 def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc, exif_keyword):
     fileinfos = traverse_all_files(dir_name, [])
@@ -219,6 +236,23 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc,
         else:
             fileinfos = dict(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0])))
         filenames = [finfo for finfo in fileinfos]
+    else:
+        print(f"Else triggered for sort")
+        sort_values = {}
+        exif_info = dict(finfo_exif)
+        for k, v in exif_info.items():
+            match = re.search(r'(?<='+ sort_by.lower() + ":" ').*?(?=,)', v.lower())
+            if match:
+                print(f"Match is: {match}")
+                sort_values[k] = match.group()
+            else:
+                sort_values[k] = "0"
+        if desc:
+            fileinfos = dict(reversed(sorted(fileinfos, key=lambda x: natural_keys(sort_values[x[0]]))))
+        else:
+            fileinfos = dict(sorted(fileinfos, key=lambda x: natural_keys(sort_values[x[0]])))
+        filenames = [finfo for finfo in fileinfos]
+        
      
     
     return filenames
@@ -364,7 +398,7 @@ def create_tab(tabname):
                 
                 with gr.Column(): 
                     with gr.Row():  
-                        sort_by = gr.Radio(value="date", choices=["path name", "date", "ranking", "aes"], label="sort by")   
+                        sort_by = gr.Dropdown(value="date", choices=["path name", "date", "ranking", "aes", "cfg scale", "steps", "seed", "sampler", "size", "aesthetic_score"], label="sort by")   
                         keyword = gr.Textbox(value="", label="filename keyword")
                         exif_keyword = gr.Textbox(value="", label="exif keyword")
                         desc = gr.Checkbox(label="Descending")

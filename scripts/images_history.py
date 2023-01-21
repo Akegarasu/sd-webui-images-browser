@@ -237,13 +237,11 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc,
             fileinfos = dict(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0])))
         filenames = [finfo for finfo in fileinfos]
     else:
-        print(f"Else triggered for sort")
         sort_values = {}
         exif_info = dict(finfo_exif)
         for k, v in exif_info.items():
             match = re.search(r'(?<='+ sort_by.lower() + ":" ').*?(?=,)', v.lower())
             if match:
-                print(f"Match is: {match}")
                 sort_values[k] = match.group()
             else:
                 sort_values[k] = "0"

@@ -22,8 +22,8 @@ loads_files_num = 0
 path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
 cur_ranking_value="0"
-aes_cache = {}
 finfo_aes = {}
+finfo_exif = {}
         
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
@@ -117,44 +117,71 @@ def traverse_all_files(curr_path, image_list) -> List[Tuple[str, os.stat_result]
 
 def cache_aes(fileinfos):
     aes_cache_file = 'aes_scores.json'
-
     aes_cache = {}
     
     if os.path.isfile(aes_cache_file):
         with open(aes_cache_file, 'r') as file:
             aes_cache = json.load(file)
-    else:
-        aes_cache["NoImage"] = 0
-        
+            
     for fi_info in fileinfos:
         if fi_info[0] in aes_cache:
             finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
-        else:       
+        else:
             finfo_aes[fi_info[0]] = "0"
+            aes_cache[fi_info[0]] = "0"
             try:
                 image = PngImageFile(fi_info[0])
                 allExif = modules.extras.run_pnginfo(image)[1]
                 m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
                 if m:
                     finfo_aes[fi_info[0]] = m.group(1)
+                    aes_cache[fi_info[0]] = m.group(1)
             except SyntaxError:
-                print(f"Non-PNG file in directory: {fi_info[0]}")
+                print(f"Non-PNG file in directory when doing AES check: {fi_info[0]}")
 
     with open(aes_cache_file, 'w') as file:
         json.dump(aes_cache, file)
 
+def cache_exif(fileinfos):
+    exif_cache_file = 'exif_data.json'
+    exif_cache = {}
+    if os.path.isfile(exif_cache_file):
+        with open(exif_cache_file, 'r') as file:
+            exif_cache = json.load(file)
+            
+    for fi_info in fileinfos:
+        if fi_info[0] in exif_cache:
+            #print(f"{fi_info[0]} found in EXIF cache!")
+            finfo_exif[fi_info[0]] = exif_cache[fi_info[0]]
+        else:
+            #print(f"{fi_info[0]} NOT found in exif cache!")
+            finfo_exif[fi_info[0]] = "0"
+            try:
+                image = PngImageFile(fi_info[0])
+                allExif = modules.extras.run_pnginfo(image)[1]
+                if allExif:
+                    finfo_exif[fi_info[0]] = allExif
+                    exif_cache[fi_info[0]] = allExif
+                    #print(f"{fi_info[0]} exif added: {allExif}!")
+            except SyntaxError:
+                print(f"Non-PNG file in directory when doing EXIF check: {fi_info[0]}")
+
+    with open(exif_cache_file, 'w') as file:
+        json.dump(exif_cache, file)
     
 
-def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc):
+def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc, exif_keyword):
     fileinfos = traverse_all_files(dir_name, [])
     keyword = keyword.strip(" ")
-
-    finfo_aes_list = finfo_aes;
     
     cache_aes(fileinfos)
+    cache_exif(fileinfos)
     
     if len(keyword) != 0:
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
+        filenames = [finfo[0] for finfo in fileinfos]
+    if len(exif_keyword) != 0:
+        fileinfos = [x for x in fileinfos if exif_keyword.lower() in finfo_exif[x[0]].lower()]
         filenames = [finfo[0] for finfo in fileinfos]
     if len(aes_filter) != 0:
         fileinfos = [x for x in fileinfos if finfo_aes[x[0]] >= aes_filter]
@@ -196,9 +223,9 @@ def get_all_images(dir_name, sort_by, keyword, ranking_filter, aes_filter, desc)
     
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc, exif_keyword):
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, keyword, ranking_filter, aes_filter, desc)
+        filenames = get_all_images(img_path, sort_by, keyword, ranking_filter, aes_filter, desc, exif_keyword)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -326,7 +353,7 @@ def create_tab(tabname):
                         end_page = gr.Button('End Page') 
                     with gr.Column(scale=10):                            
                         ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive="true")
-                        auto_next = gr.Checkbox(label="Next Image After Ranking")
+                        auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive="false")
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
                     
                     with gr.Row() as delete_panel:
@@ -338,7 +365,8 @@ def create_tab(tabname):
                 with gr.Column(): 
                     with gr.Row():  
                         sort_by = gr.Radio(value="date", choices=["path name", "date", "ranking", "aes"], label="sort by")   
-                        keyword = gr.Textbox(value="", label="keyword")
+                        keyword = gr.Textbox(value="", label="filename keyword")
+                        exif_keyword = gr.Textbox(value="", label="exif keyword")
                         desc = gr.Checkbox(label="Descending")
                     with gr.Column():
                         ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive="true")
@@ -396,6 +424,7 @@ def create_tab(tabname):
     end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])    
     load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     keyword.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    exif_keyword.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     aes_filter.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     ranking_filter.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
@@ -405,7 +434,7 @@ def create_tab(tabname):
         
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc], 
+        inputs=[img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, desc, exif_keyword], 
         outputs=[filenames, page_index, history_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box]
     )
     turn_page_switch.change(fn=None, inputs=[tabname_box], outputs=None, _js="images_history_turnpage")

@@ -17,7 +17,7 @@ from PIL.PngImagePlugin import PngImageFile, PngInfo
 
 
 faverate_tab_name = "Favorites"
-tabs_list = ["txt2img", "img2img",  "i2p2p", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
+tabs_list = ["txt2img", "img2img",  "instruct-pix2pix", "txt2img-grids", "img2img-grids", "Extras", faverate_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
 num_of_imgs_per_page = 0
 loads_files_num = 0
 path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
@@ -345,12 +345,19 @@ def get_ranking(filename):
 def create_tab(tabname):
     custom_dir = False
     path_recorder = []
+    
+    try:
+        if opts.outdir_ip2p_samples:
+            ip2p_dirname = opts.outdir_ip2p_samples
+    except AttributeError:
+        ip2p_dirname = "outputs/ip2p-images"
+    
     if tabname == "txt2img":
         dir_name = opts.outdir_txt2img_samples
     elif tabname == "img2img":
         dir_name = opts.outdir_img2img_samples
-    elif tabname == "i2p2p":
-        dir_name = opts.outdir_i2p2p_samples
+    elif tabname == "instruct-pix2pix":
+        dir_name = ip2p_dirname
     elif tabname == "txt2img-grids":    #added by HaylockGrant to add a new tab for grid images
         dir_name = opts.outdir_txt2img_grids
     elif tabname == "img2img-grids":    #added by HaylockGrant to add a new tab for grid images

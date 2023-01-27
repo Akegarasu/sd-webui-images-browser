@@ -8,7 +8,8 @@ import modules.ui
 import json
 import re
 from modules.shared import opts, cmd_opts
-from modules import shared, scripts
+from modules import shared, scripts, images
+from modules.ui_common import plaintext_to_html
 from modules import script_callbacks
 from pathlib import Path
 from typing import List, Tuple
@@ -494,7 +495,7 @@ def create_tab(tabname):
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
 
    
-    hidden.change(fn=modules.extras.run_pnginfo, inputs=[hidden], outputs=[info1, img_file_info, info2])
+    hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2])
     
     #ranking
     ranking.change(create_ranked_file, inputs=[img_file_name, ranking])
@@ -505,7 +506,33 @@ def create_tab(tabname):
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, img_file_name, img_file_info)
     except:
         pass
+    
+def run_pnginfo(image, image_path, image_file_name):
+    if image is None:
+        return '', '', ''
+    print(f"Image Path is {image_path}")
+    print(f"Image is {image_file_name}")
+    geninfo, items = images.read_info_from_image(image)
+    items = {**{'parameters': geninfo}, **items}
 
+    info = ''
+    for key, text in items.items():
+        info += f"""
+<div>
+<p><b>{plaintext_to_html(str(key))}</b></p>
+<p>{plaintext_to_html(str(text))}</p>
+</div>
+""".strip()+"\n"
+
+    if geninfo is None:
+        print(f"Nothing found in the image, checking for separate file")
+        filename = os.path.splitext(image_file_name)[0] + ".txt"
+        print(f"Filename is {filename}")
+        geninfo = ""
+        with open(filename) as f:
+            for line in f:
+                geninfo += line
+    return '', geninfo, info
 
 
 def on_ui_tabs():

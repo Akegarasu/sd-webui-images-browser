@@ -510,8 +510,6 @@ def create_tab(tabname):
 def run_pnginfo(image, image_path, image_file_name):
     if image is None:
         return '', '', ''
-    print(f"Image Path is {image_path}")
-    print(f"Image is {image_file_name}")
     geninfo, items = images.read_info_from_image(image)
     items = {**{'parameters': geninfo}, **items}
 
@@ -525,9 +523,7 @@ def run_pnginfo(image, image_path, image_file_name):
 """.strip()+"\n"
 
     if geninfo is None:
-        print(f"Nothing found in the image, checking for separate file")
         filename = os.path.splitext(image_file_name)[0] + ".txt"
-        print(f"Filename is {filename}")
         geninfo = ""
         with open(filename) as f:
             for line in f:

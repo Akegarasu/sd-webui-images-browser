@@ -1,5 +1,9 @@
 # stable-diffusion-webui-images-browser
 
+Forked verison of yfszzx/stable-diffusion-webui-images-browser adding additional sorting and filtering by EXIF data including .txt file information.
+
+Original Readme:
+
 This an extension for [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
 
 This an images browser for browsing past generated pictures， view their generated infomations，send the prompt to txt2img or img2img， collect images to your "faveries" fold, delete the images you no longer need， and you can also browse images in any folds in your computer  

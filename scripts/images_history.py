@@ -134,11 +134,22 @@ def cache_aes(fileinfos):
             try:
                 image = PngImageFile(fi_info[0])
                 allExif = modules.extras.run_pnginfo(image)[1]
-                if allExif:
+                if allExif and allExif != "":
                     m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
                     if m:
                         finfo_aes[fi_info[0]] = m.group(1)
                         aes_cache[fi_info[0]] = m.group(1)
+                else:
+                    try:
+                        filename = os.path.splitext(fi_info[0])[0] + ".txt"
+                        geninfo = ""
+                        with open(filename) as f:
+                            for line in f:
+                                geninfo += line
+                        finfo_exif[fi_info[0]] = geninfo
+                        exif_cache[fi_info[0]] = geninfo
+                    except Exception:
+                        print(f"No exif for {fi_info[0]}")
             except SyntaxError:
                 print(f"Non-PNG file in directory when doing AES check: {fi_info[0]}")
 
@@ -165,6 +176,17 @@ def cache_exif(fileinfos):
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
+                else:
+                    try:
+                        filename = os.path.splitext(fi_info[0])[0] + ".txt"
+                        geninfo = ""
+                        with open(filename) as f:
+                            for line in f:
+                                geninfo += line
+                        finfo_exif[fi_info[0]] = geninfo
+                        exif_cache[fi_info[0]] = geninfo
+                    except Exception:
+                        print(f"No EXIF in PNG or txt file fpr {fi_info[0]}")
                     #print(f"{fi_info[0]} exif added: {allExif}!")
             except SyntaxError:
                 print(f"Non-PNG file in directory when doing EXIF check: {fi_info[0]}")
@@ -521,13 +543,16 @@ def run_pnginfo(image, image_path, image_file_name):
 <p>{plaintext_to_html(str(text))}</p>
 </div>
 """.strip()+"\n"
-
+    
     if geninfo is None:
-        filename = os.path.splitext(image_file_name)[0] + ".txt"
-        geninfo = ""
-        with open(filename) as f:
-            for line in f:
-                geninfo += line
+        try:
+            filename = os.path.splitext(image_file_name)[0] + ".txt"
+            geninfo = ""
+            with open(filename) as f:
+                for line in f:
+                    geninfo += line
+        except Exception:
+            print(f"No EXIF in PNG or txt file")
     return '', geninfo, info
 
 

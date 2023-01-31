@@ -217,7 +217,7 @@ def traverse_all_files(curr_path, image_list, tabname_box, img_path_depth) -> Li
 
 
 def cache_aes(fileinfos):
-    aes_cache_file = 'aes_scores.json'
+    aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
     aes_cache = {}
     
     if os.path.isfile(aes_cache_file):
@@ -256,7 +256,7 @@ def cache_aes(fileinfos):
         json.dump(aes_cache, file)
 
 def cache_exif(fileinfos):
-    exif_cache_file = 'exif_data.json'
+    exif_cache_file = os.path.join(scripts.basedir(), "exif_data.json")
     exif_cache = {}
     if os.path.isfile(exif_cache_file):
         with open(exif_cache_file, 'r') as file:
@@ -310,7 +310,7 @@ def natural_keys(text):
     return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
 
-def get_all_images(dir_name, sort_by, sort_order, keyword, ranking_filter, aes_filter, desc, exif_keyword, tabname_box, img_path_depth):
+def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
     global current_depth
     current_depth = 0
     fileinfos = traverse_all_files(dir_name, [], tabname_box, img_path_depth)
@@ -398,7 +398,7 @@ def get_image_aesthetic_score(img_path):
     except KeyError:
         return 0
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, ranking_filter, aes_filter, sort_order, exif_keyword):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
     img_path, _ = pure_path(img_path)
     if not cmd_opts.administrator:
         head = os.path.abspath(".")
@@ -407,7 +407,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, ranking_fi
             warning = warning_permission.format(img_path)
             return None, 0, None, "", "", "", None, None, warning
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword))
+        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -584,7 +584,7 @@ def create_tab(tabname):
                         exif_keyword = gr.Textbox(value="", label="exif keyword")
                         
                     with gr.Column():
-                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None", "aesthetic_score", "random"], label="ranking filter", interactive="true")
+                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive="true")
                     with gr.Row():  
                         aes_filter = gr.Textbox(value="", label="minimum aesthetic_score")
                     with gr.Row():

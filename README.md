@@ -26,4 +26,4 @@ and restart your stable-diffusion-webui, then you can see the new tab "Image Bro
 
 ## Credit
 
-Credit goes above all to the original maintainer of this extension: https://github.com/yfszzx/stable-diffusion-webui-images-browser
+Credit goes to the original maintainer of this extension: https://github.com/yfszzx and to major contributor https://github.com/Klace

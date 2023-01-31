@@ -12,7 +12,10 @@ You can also install it manually by running the following command from within th
 
 	git clone https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/ extensions/stable-diffusion-webui-images-browser
 
+and restart your stable-diffusion-webui, then you can see the new tab "Image Browser".
+
 ## Recent updates
+- Additional sorting and filtering by EXIF data including .txt file information
 - Recyle bin option
 - Add/Remove from saved directories, via buttons
 - New dropdown with subdirs

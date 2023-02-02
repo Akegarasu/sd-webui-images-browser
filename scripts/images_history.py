@@ -29,6 +29,8 @@ num_of_imgs_per_page = 0
 loads_files_num = 0
 path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
 path_recorder_filename_tmp = f"{path_recorder_filename}.tmp"
+aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
+exif_cache_file = os.path.join(scripts.basedir(), "exif_data.json")
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
 cur_ranking_value="0"
 finfo_aes = {}
@@ -217,7 +219,6 @@ def traverse_all_files(curr_path, image_list, tabname_box, img_path_depth) -> Li
 
 
 def cache_aes(fileinfos):
-    aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
     aes_cache = {}
     
     if os.path.isfile(aes_cache_file):
@@ -234,7 +235,7 @@ def cache_aes(fileinfos):
                 image = PngImageFile(fi_info[0])
                 allExif = modules.extras.run_pnginfo(image)[1]
                 if allExif and allExif != "":
-                    m = re.search("aesthetic_score: (\d+\.\d+)", allExif)
+                    m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", allExif)
                     if m:
                         finfo_aes[fi_info[0]] = m.group(1)
                         aes_cache[fi_info[0]] = m.group(1)
@@ -246,7 +247,7 @@ def cache_aes(fileinfos):
                             for line in f:
                                 geninfo += line
                         finfo_exif[fi_info[0]] = geninfo
-                        exif_cache[fi_info[0]] = geninfo
+                        #exif_cache[fi_info[0]] = geninfo
                     except Exception:
                         print(f"No exif for {fi_info[0]}")
             except SyntaxError:
@@ -256,7 +257,6 @@ def cache_aes(fileinfos):
         json.dump(aes_cache, file)
 
 def cache_exif(fileinfos):
-    exif_cache_file = os.path.join(scripts.basedir(), "exif_data.json")
     exif_cache = {}
     if os.path.isfile(exif_cache_file):
         with open(exif_cache_file, 'r') as file:
@@ -343,11 +343,6 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
         else:
             fileinfos = sorted(fileinfos, reverse=True)
         filenames = [finfo[0] for finfo in fileinfos]
-    elif sort_by == "aesthetic_score":
-        if sort_order == up_symbol:
-            fileinfos = sorted(fileinfos, key=lambda x: get_image_aesthetic_score(x[0]))
-        else:
-            fileinfos = sorted(fileinfos, key=lambda x: -get_image_aesthetic_score(x[0]))
     elif sort_by == "random":
         random.shuffle(fileinfos)
         filenames = [finfo[0] for finfo in fileinfos]
@@ -355,16 +350,16 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
         finfo_ranked = {}
         for fi_info in fileinfos:
             finfo_ranked[fi_info[0]] = get_ranking(fi_info[0])
-        if not desc:
+        if not down_symbol:
             fileinfos = dict(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0])))
         else:
             fileinfos = dict(reversed(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0]))))
         filenames = [finfo for finfo in fileinfos]
-    elif sort_by == "aes":
+    elif sort_by == "aesthetic_score":
         fileinfo_aes = {}
         for finfo in fileinfos:
             fileinfo_aes[finfo[0]] = finfo_aes[finfo[0]]
-        if desc:
+        if down_symbol:
             fileinfos = dict(reversed(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0]))))
         else:
             fileinfos = dict(sorted(fileinfo_aes.items(), key=lambda x: (x[1], x[0])))
@@ -379,7 +374,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
                     sort_values[k] = match.group()
                 else:
                     sort_values[k] = "0"
-            if desc:
+            if down_symbol:
                 fileinfos = dict(reversed(sorted(fileinfos, key=lambda x: natural_keys(sort_values[x[0]]))))
             else:
                 fileinfos = dict(sorted(fileinfos, key=lambda x: natural_keys(sort_values[x[0]])))
@@ -387,16 +382,6 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
         else:
             filenames = [finfo for finfo in fileinfos]
     return filenames
-
-def get_image_aesthetic_score(img_path):
-    if not os.path.exists(img_path):
-        return 0
-    img = Image.open(img_path)
-
-    try:
-        return float(img.info['aesthetic_score'])
-    except KeyError:
-        return 0
 
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
     img_path, _ = pure_path(img_path)
@@ -566,8 +551,8 @@ def create_tab(tabname):
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
                     with gr.Column(scale=10):                            
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive="true")
-                        auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive="false")
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive=True)
+                        auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
                     with gr.Row() as delete_panel:
                         with gr.Column(scale=1):
@@ -584,7 +569,7 @@ def create_tab(tabname):
                         exif_keyword = gr.Textbox(value="", label="exif keyword")
                         
                     with gr.Column():
-                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive="true")
+                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive=True)
                     with gr.Row():  
                         aes_filter = gr.Textbox(value="", label="minimum aesthetic_score")
                     with gr.Row():

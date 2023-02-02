@@ -31,6 +31,7 @@ path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
 path_recorder_filename_tmp = f"{path_recorder_filename}.tmp"
 aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
 exif_cache_file = os.path.join(scripts.basedir(), "exif_data.json")
+ranking_file = os.path.join(scripts.basedir(), "ranking.json")
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
 cur_ranking_value="0"
 finfo_aes = {}
@@ -156,19 +157,18 @@ def save_image(file_name):
         return "<div style='color:#999'>Image not found (may have been already moved)</div>"
 
 def create_ranked_file(filename, ranking):
-    ranking_file = 'ranking.json'
+    if os.path.isfile(filename):
+        if not os.path.isfile(ranking_file):
+            data = {}
+            
+        else:
+            with open(ranking_file, 'r') as file:
+                data = json.load(file)
 
-    if not os.path.isfile(ranking_file):
-        data = {}
-        
-    else:
-        with open(ranking_file, 'r') as file:
-            data = json.load(file)
+        data[filename] = ranking
 
-    data[filename] = ranking
-
-    with open(ranking_file, 'w') as file:
-        json.dump(data, file)
+        with open(ranking_file, 'w') as file:
+            json.dump(data, file)
 
 def delete_image(delete_num, name, filenames, image_index, visible_num):
     if name == "":
@@ -460,17 +460,6 @@ def change_dir(img_dir, path_recorder, load_switch, img_path_history, img_path_d
 
 def update_move_text(unused):
     return f'{"Move" if not opts.images_copy_image else "Copy"} to favorites'
-
-def get_ranking(filename):
-    ranking_file = 'ranking.json'
-    ranking_value = "None"
-    if os.path.isfile(ranking_file):
-        with open(ranking_file, 'r') as file:
-            data = json.load(file)
-            if filename in data:
-                ranking_value = data[filename]
-                
-    return ranking_value
 
 def get_ranking(filename):
     ranking_file = 'ranking.json'

@@ -4,6 +4,7 @@ import shutil
 import time
 import stat
 import json
+import logging
 import random
 import gradio as gr
 import modules.extras
@@ -42,6 +43,14 @@ up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
 warning_permission = "You have no permission to visit {}. If you want to visit all directories, add command line argument option '--administrator', <a style='color:#990' href='https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Command-Line-Arguments-and-Settings' target='_blank' rel='noopener noreferrer'>More details here</a>"
 current_depth = 0
+
+logger = logging.getLogger(__name__)
+logger_mode = logging.INFO
+if hasattr(opts, "images_logger_warning"):
+    if opts.images_logger_warning:
+        logger_mode = logging.WARNING
+logger.setLevel(logger_mode)
+
 
 def delete_recycle(filename):
     if opts.images_delete_recycle:
@@ -246,12 +255,14 @@ def cache_aes(fileinfos):
                         with open(filename) as f:
                             for line in f:
                                 geninfo += line
-                        finfo_exif[fi_info[0]] = geninfo
-                        #exif_cache[fi_info[0]] = geninfo
+                        m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", geninfo)
+                        if m:
+                            finfo_aes[fi_info[0]] = m.group(1)
+                            aes_cache[fi_info[0]] = m.group(1)
                     except Exception:
-                        print(f"No exif for {fi_info[0]}")
+                        logger.warning(f"No EXIF in PNG or txt file when doing AES check: {fi_info[0]}")
             except SyntaxError:
-                print(f"Non-PNG file in directory when doing AES check: {fi_info[0]}")
+                logger.warning(f"Non-PNG file in directory when doing AES check: {fi_info[0]}")
 
     with open(aes_cache_file, 'w') as file:
         json.dump(aes_cache, file)
@@ -285,10 +296,10 @@ def cache_exif(fileinfos):
                         finfo_exif[fi_info[0]] = geninfo
                         exif_cache[fi_info[0]] = geninfo
                     except Exception:
-                        print(f"No EXIF in PNG or txt file fpr {fi_info[0]}")
+                        logger.warning(f"No EXIF in PNG or txt file for {fi_info[0]}")
                     #print(f"{fi_info[0]} exif added: {allExif}!")
             except SyntaxError:
-                print(f"Non-PNG file in directory when doing EXIF check: {fi_info[0]}")
+                logger.warning(f"Non-PNG file in directory when doing EXIF check: {fi_info[0]}")
 
     with open(exif_cache_file, 'w') as file:
         json.dump(exif_cache, file)
@@ -507,6 +518,9 @@ def create_tab(tabname):
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
 
+    with gr.Row():                 
+        warning_box = gr.HTML("<p>&nbsp") 
+
     with gr.Row(visible= custom_dir): 
         with gr.Column(scale=10):
             img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory", interactive=custom_dir)  
@@ -593,8 +607,6 @@ def create_tab(tabname):
                         turn_page_switch = gr.Number(value=1, label="turn_page_switch")
                         img_path_add = gr.Textbox(value="add")
                         img_path_remove = gr.Textbox(value="remove")
-    with gr.Row():                 
-        warning_box = gr.HTML() 
 
     change_dir_outputs = [warning_box, main_panel, img_path_history, path_recorder, load_switch, img_path, img_path_depth]
     img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_history, img_path_depth, img_path], outputs=change_dir_outputs)
@@ -702,7 +714,7 @@ def run_pnginfo(image, image_path, image_file_name):
                 for line in f:
                     geninfo += line
         except Exception:
-            print(f"No EXIF in PNG or txt file")
+            logger.warning(f"No EXIF in PNG or txt file")
     return '', geninfo, info
 
 
@@ -723,10 +735,11 @@ def on_ui_tabs():
 
 def on_ui_settings():
     section = ('images-history', "Images Browser")
-    shared.opts.add_option("images_history_with_subdirs", shared.OptionInfo(False, "Include images in sub directories", section=section))
+    shared.opts.add_option("images_history_with_subdirs", shared.OptionInfo(True, "Include images in sub directories", section=section))
     shared.opts.add_option("images_history_preload", shared.OptionInfo(False, "Preload images at startup", section=section))
     shared.opts.add_option("images_copy_image", shared.OptionInfo(False, "Move to favorites button copies instead of moving", section=section))
     shared.opts.add_option("images_delete_message", shared.OptionInfo(True, "Print image deletion messages to the console", section=section))
+    shared.opts.add_option("images_logger_warning", shared.OptionInfo(False, "Print warning logs to the console", section=section))
     shared.opts.add_option("images_delete_recycle", shared.OptionInfo(False, "Use recycle bin when deleting images", section=section))
     shared.opts.add_option("images_history_page_columns", shared.OptionInfo(6, "Number of columns on the page", section=section))
     shared.opts.add_option("images_history_page_rows", shared.OptionInfo(6, "Number of rows on the page", section=section))

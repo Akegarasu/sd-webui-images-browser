@@ -14,6 +14,8 @@ You can also install it manually by running the following command from within th
 
 and restart your stable-diffusion-webui, then you can see the new tab "Image Browser".
 
+Please be aware that when scanning a directory for the first time, the png-cache will be built. This can take several minutes, depending on the amount of images.
+
 ## Recent updates
 - Additional sorting and filtering by EXIF data including .txt file information
 - Recyle bin option

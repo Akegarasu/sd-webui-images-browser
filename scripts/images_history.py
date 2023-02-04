@@ -708,7 +708,7 @@ def on_ui_tabs():
     num_of_imgs_per_page = int(opts.images_history_page_columns * opts.images_history_page_rows)
     loads_files_num = int(opts.images_history_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as images_history:
-        with gr.Tabs(elem_id="images_history_tab)") as tabs:
+        with gr.Tabs(elem_id="images_history_tab") as tabs:
             for tab in tabs_list:
                 with gr.Tab(tab):
                     with gr.Blocks(analytics_enabled=False) :

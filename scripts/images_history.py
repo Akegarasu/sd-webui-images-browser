@@ -294,7 +294,7 @@ def cache_exif(fileinfos):
         json.dump(aes_cache, file)
 
     cache_exif_end = time.time()
-    logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
+    # logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
 def atof(text):
     try:

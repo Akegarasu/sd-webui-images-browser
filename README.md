@@ -25,6 +25,7 @@ Please be aware that when scanning a directory for the first time, the png-cache
 - Refresh button
 - Sort order
 - View and save favorites with individual folder depth
+- Now also supports jpg
 
 ## Credit
 

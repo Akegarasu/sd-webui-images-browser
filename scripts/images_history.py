@@ -1,28 +1,26 @@
-import os
-import re
-import shutil
-import time
-import stat
+import gradio as gr
 import json
 import logging
+import os
 import random
-import gradio as gr
+import re
+import shutil
+import stat
+import time
 import modules.extras
 import modules.ui
-import json
-import re
-from modules.shared import opts, cmd_opts
-from modules.ui_components import ToolButton
-from modules import shared, scripts, images
-from modules.ui_common import plaintext_to_html
 from modules import script_callbacks
+from modules import shared, scripts, images
+from modules.shared import opts, cmd_opts
+from modules.ui_common import plaintext_to_html
+from modules.ui_components import ToolButton
 from PIL import Image
+from PIL.ExifTags import TAGS
+from PIL.JpegImagePlugin import JpegImageFile
+from PIL.PngImagePlugin import PngImageFile
 from pathlib import Path
 from send2trash import send2trash
 from typing import List, Tuple
-from PIL.ExifTags import TAGS
-from PIL.PngImagePlugin import PngImageFile, PngInfo
-
 
 favorite_tab_name = "Favorites"
 tabs_list = ["txt2img", "img2img",  "instruct-pix2pix", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
@@ -226,66 +224,47 @@ def traverse_all_files(curr_path, image_list, tabname_box, img_path_depth) -> Li
                 current_depth = current_depth - 1
     return image_list
 
-
-def cache_aes(fileinfos):
-    aes_cache = {}
-    
-    if os.path.isfile(aes_cache_file):
-        with open(aes_cache_file, 'r') as file:
-            aes_cache = json.load(file)
-            
-    for fi_info in fileinfos:
-        if fi_info[0] in aes_cache:
-            finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
-        else:
-            finfo_aes[fi_info[0]] = "0"
-            aes_cache[fi_info[0]] = "0"
-            try:
-                image = PngImageFile(fi_info[0])
-                allExif = modules.extras.run_pnginfo(image)[1]
-                if allExif and allExif != "":
-                    m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", allExif)
-                    if m:
-                        finfo_aes[fi_info[0]] = m.group(1)
-                        aes_cache[fi_info[0]] = m.group(1)
-                else:
-                    try:
-                        filename = os.path.splitext(fi_info[0])[0] + ".txt"
-                        geninfo = ""
-                        with open(filename) as f:
-                            for line in f:
-                                geninfo += line
-                        m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", geninfo)
-                        if m:
-                            finfo_aes[fi_info[0]] = m.group(1)
-                            aes_cache[fi_info[0]] = m.group(1)
-                    except Exception:
-                        logger.warning(f"No EXIF in PNG or txt file when doing AES check: {fi_info[0]}")
-            except SyntaxError:
-                logger.warning(f"Non-PNG file in directory when doing AES check: {fi_info[0]}")
-
-    with open(aes_cache_file, 'w') as file:
-        json.dump(aes_cache, file)
-
 def cache_exif(fileinfos):
     exif_cache = {}
+    aes_cache = {}
+
     if os.path.isfile(exif_cache_file):
         with open(exif_cache_file, 'r') as file:
             exif_cache = json.load(file)
+    if os.path.isfile(aes_cache_file):
+        with open(aes_cache_file, 'r') as file:
+            aes_cache = json.load(file)
 
+    cache_exif_start = time.time()
+    new_exif = 0
+    new_aes = 0
     for fi_info in fileinfos:
+        found_exif = False
+        found_aes = False
         if fi_info[0] in exif_cache:
-            #print(f"{fi_info[0]} found in EXIF cache!")
             finfo_exif[fi_info[0]] = exif_cache[fi_info[0]]
-        else:
-            #print(f"{fi_info[0]} NOT found in exif cache!")
-            finfo_exif[fi_info[0]] = "0"
+            found_exif = True
+        if fi_info[0] in aes_cache:
+            finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
+            found_aes = True
+        if not found_exif or not found_aes:
             try:
-                image = PngImageFile(fi_info[0])
+                finfo_exif[fi_info[0]] = "0"
+                finfo_aes[fi_info[0]] = "0"
+                if fi_info[0].endswith(image_ext_list[0]):
+                    image = PngImageFile(fi_info[0])
+                else:
+                    image = JpegImageFile(fi_info[0])
                 allExif = modules.extras.run_pnginfo(image)[1]
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
+                    new_exif = new_exif + 1
+                    m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", allExif)
+                    if m:
+                        finfo_aes[fi_info[0]] = m.group(1)
+                        aes_cache[fi_info[0]] = m.group(1)
+                        new_aes = new_aes + 1
                 else:
                     try:
                         filename = os.path.splitext(fi_info[0])[0] + ".txt"
@@ -295,14 +274,25 @@ def cache_exif(fileinfos):
                                 geninfo += line
                         finfo_exif[fi_info[0]] = geninfo
                         exif_cache[fi_info[0]] = geninfo
+                        new_exif = new_exif + 1
+                        m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", geninfo)
+                        if m:
+                            finfo_aes[fi_info[0]] = m.group(1)
+                            aes_cache[fi_info[0]] = m.group(1)
+                            new_aes = new_aes + 1
                     except Exception:
-                        logger.warning(f"No EXIF in PNG or txt file for {fi_info[0]}")
-                    #print(f"{fi_info[0]} exif added: {allExif}!")
+                        logger.warning(f"No EXIF in PNG/JPG or txt file for {fi_info[0]}")
             except SyntaxError:
-                logger.warning(f"Non-PNG file in directory when doing EXIF check: {fi_info[0]}")
+                logger.warning(f"Non-PNG/JPG file in directory when doing EXIF check: {fi_info[0]}")
 
     with open(exif_cache_file, 'w') as file:
         json.dump(exif_cache, file)
+
+    with open(aes_cache_file, 'w') as file:
+        json.dump(aes_cache, file)
+
+    cache_exif_end = time.time()
+    logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
 def atof(text):
     try:
@@ -327,7 +317,6 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
     fileinfos = traverse_all_files(dir_name, [], tabname_box, img_path_depth)
     keyword = keyword.strip(" ")
     
-    cache_aes(fileinfos)
     cache_exif(fileinfos)
     
     if len(keyword) != 0:

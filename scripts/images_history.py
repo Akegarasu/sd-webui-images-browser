@@ -476,19 +476,12 @@ def create_tab(tabname):
     custom_dir = False
     path_recorder = {}
     path_recorder_formatted = []
-    
-    try:
-        if opts.outdir_ip2p_samples:
-            ip2p_dirname = opts.outdir_ip2p_samples
-    except AttributeError:
-        ip2p_dirname = "outputs/ip2p-images"
+
     
     if tabname == "txt2img":
         dir_name = opts.outdir_txt2img_samples
     elif tabname == "img2img":
         dir_name = opts.outdir_img2img_samples
-    elif tabname == "instruct-pix2pix":
-        dir_name = ip2p_dirname
     elif tabname == "txt2img-grids":    #added by HaylockGrant to add a new tab for grid images
         dir_name = opts.outdir_txt2img_grids
     elif tabname == "img2img-grids":    #added by HaylockGrant to add a new tab for grid images

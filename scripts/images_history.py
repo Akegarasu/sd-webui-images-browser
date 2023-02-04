@@ -114,6 +114,8 @@ def read_path_recorder(path_recorder, path_recorder_formatted):
     return path_recorder, path_recorder_formatted
 
 def pure_path(path):
+    if path == []:
+        return path, 0
     match = re.search(r" \[(\d+)\]$", path)
     if match:
         path = path[:match.start()]
@@ -292,7 +294,7 @@ def cache_exif(fileinfos):
         json.dump(aes_cache, file)
 
     cache_exif_end = time.time()
-    logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
+    # logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
 def atof(text):
     try:
@@ -593,7 +595,7 @@ def create_tab(tabname):
     change_dir_outputs = [warning_box, main_panel, img_path_history, path_recorder, load_switch, img_path, img_path_depth]
     img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_history, img_path_depth, img_path], outputs=change_dir_outputs)
     img_path_history.change(change_dir, inputs=[img_path_history, path_recorder, load_switch, img_path_history, img_path_depth, img_path], outputs=change_dir_outputs)
-    img_path_history.change(history2path, inputs=[img_path_history], outputs=[img_path])
+    # img_path_history.change(history2path, inputs=[img_path_history], outputs=[img_path])
 
     #delete
     delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num])
@@ -706,7 +708,7 @@ def on_ui_tabs():
     num_of_imgs_per_page = int(opts.images_history_page_columns * opts.images_history_page_rows)
     loads_files_num = int(opts.images_history_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as images_history:
-        with gr.Tabs(elem_id="images_history_tab)") as tabs:
+        with gr.Tabs(elem_id="images_history_tab") as tabs:
             for tab in tabs_list:
                 with gr.Tab(tab):
                     with gr.Blocks(analytics_enabled=False) :

@@ -1,7 +1,5 @@
 var images_history_click_image = function(){
-    console.log("in images_history_click_image !")
-    console.log(this.classList)
-    if (!this.classList.contains("transform")){        
+    if (!this.classList?.contains("transform")){        
         var gallery = images_history_get_parent_by_class(this, "images_history_cantainor");
         var buttons = gallery.querySelectorAll(".gallery-item");
         var i = 0;
@@ -75,9 +73,6 @@ function images_history_set_image_info(button){
 }
 
 function images_history_get_current_img(tabname, img_index, page_index){
-    console.log("tabName",tabname)
-    console.log("img_index",img_index)
-    console.log(tabname + '_images_history_set_index')
     return [
         tabname, 
         gradioApp().getElementById(tabname + '_images_history_set_index').getAttribute("img_index"),       
@@ -125,7 +120,6 @@ function images_history_turnpage(tabname){
         elem.style.display = 'block';
     });   
 }
-
 
 function images_history_init(){ 
     var tabnames = gradioApp().getElementById("images_history_tabnames_list")   
@@ -196,8 +190,3 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     mutationObserver.observe(gradioApp(), { childList:true, subtree:true });
 });
-
-
-
-
-

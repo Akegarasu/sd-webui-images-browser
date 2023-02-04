@@ -39,7 +39,7 @@ none_select = "Nothing selected"
 refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
-warning_permission = "You have no permission to visit {}. If you want to visit all directories, add command line argument option '--administrator', <a style='color:#990' href='https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Command-Line-Arguments-and-Settings' target='_blank' rel='noopener noreferrer'>More details here</a>"
+#warning_permission = "You have no permission to visit {}. If you want to visit all directories, add command line argument option '--administrator', <a style='color:#990' href='https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Command-Line-Arguments-and-Settings' target='_blank' rel='noopener noreferrer'>More details here</a>"
 current_depth = 0
 
 logger = logging.getLogger(__name__)
@@ -385,12 +385,12 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
 
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
     img_path, _ = pure_path(img_path)
-    if not cmd_opts.administrator:
-        head = os.path.abspath(".")
-        abs_path = os.path.abspath(img_path)
-        if len(abs_path) < len(head) or abs_path[:len(head)] != head:
-            warning = warning_permission.format(img_path)
-            return None, 0, None, "", "", "", None, None, warning
+    #if not cmd_opts.administrator:
+    #    head = os.path.abspath(".")
+    #    abs_path = os.path.abspath(img_path)
+    #    if len(abs_path) < len(head) or abs_path[:len(head)] != head:
+    #        warning = warning_permission.format(img_path)
+    #        return None, 0, None, "", "", "", None, None, warning
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
         filenames = get_all_images(img_path, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword)
     page_index = int(page_index)
@@ -434,14 +434,14 @@ def change_dir(img_dir, path_recorder, load_switch, img_path_history, img_path_d
         return warning, gr.update(visible=False), img_path_history, path_recorder, load_switch, img_path, img_path_depth
     else:
         img_dir, img_path_depth = pure_path(img_dir)
-        try:
-            if not cmd_opts.administrator:        
-                head = os.path.abspath(".")
-                abs_path = os.path.abspath(img_dir)
-                if len(abs_path) < len(head) or abs_path[:len(head)] != head:
-                    warning = warning_permission.format(img_dir)
-        except:
-            pass  
+        #try:
+        #    if not cmd_opts.administrator:        
+        #        head = os.path.abspath(".")
+        #        abs_path = os.path.abspath(img_dir)
+        #        if len(abs_path) < len(head) or abs_path[:len(head)] != head:
+        #            warning = warning_permission.format(img_dir)
+        #except:
+        #    pass  
         if warning is None:
             try:
                 if os.path.exists(img_dir):

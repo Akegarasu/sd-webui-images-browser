@@ -324,7 +324,8 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
     fileinfos = traverse_all_files(dir_name, [], tabname_box, img_path_depth)
     keyword = keyword.strip(" ")
     
-    cache_exif(fileinfos)
+    if opts.images_scan_exif:
+        cache_exif(fileinfos)
     
     if len(keyword) != 0:
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
@@ -731,6 +732,8 @@ def on_ui_settings():
     shared.opts.add_option("images_logger_warning", shared.OptionInfo(False, "Print warning logs to the console", section=section))
     shared.opts.add_option("images_logger_debug", shared.OptionInfo(False, "Print debug logs to the console", section=section))
     shared.opts.add_option("images_delete_recycle", shared.OptionInfo(False, "Use recycle bin when deleting images", section=section))
+    shared.opts.add_option("images_scan_exif", shared.OptionInfo(True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", section=section))
+
     shared.opts.add_option("images_history_page_columns", shared.OptionInfo(6, "Number of columns on the page", section=section))
     shared.opts.add_option("images_history_page_rows", shared.OptionInfo(6, "Number of rows on the page", section=section))
     shared.opts.add_option("images_history_pages_perload", shared.OptionInfo(20, "Minimum number of pages per load", section=section))

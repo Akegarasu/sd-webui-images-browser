@@ -182,7 +182,7 @@ def create_ranked_file(filename, ranking):
         data[filename] = ranking
 
         with open(ranking_file, 'w') as file:
-            json.dump(data, file)
+            json.dump(data, file, indent=0)
 
 def delete_image(delete_num, name, filenames, image_index, visible_num):
     if name == "":
@@ -295,10 +295,10 @@ def cache_exif(fileinfos):
                 logger.warning(f"Non-PNG/JPG file in directory when doing EXIF check: {fi_info[0]}")
 
     with open(exif_cache_file, 'w') as file:
-        json.dump(exif_cache, file)
+        json.dump(exif_cache, file, indent=0)
 
     with open(aes_cache_file, 'w') as file:
-        json.dump(aes_cache, file)
+        json.dump(aes_cache, file, indent=0)
 
     cache_exif_end = time.time()
     logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
@@ -472,7 +472,6 @@ def update_move_text(unused):
     return f'{"Move" if not opts.images_copy_image else "Copy"} to favorites'
 
 def get_ranking(filename):
-    ranking_file = 'ranking.json'
     ranking_value = "None"
     if os.path.isfile(ranking_file):
         with open(ranking_file, 'r') as file:

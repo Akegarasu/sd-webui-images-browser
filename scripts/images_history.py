@@ -43,12 +43,17 @@ down_symbol = '\U000025bc'  # ▼
 current_depth = 0
 
 logger = logging.getLogger(__name__)
-logger_mode = logging.INFO
+logger_mode = logging.ERROR
 if hasattr(opts, "images_logger_warning"):
     if opts.images_logger_warning:
         logger_mode = logging.WARNING
+if hasattr(opts, "images_logger_debug"):
+    if opts.images_logger_debug:
+        logger_mode = logging.DEBUG
 logger.setLevel(logger_mode)
-
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logger_mode)
+logger.addHandler(console_handler)
 
 def delete_recycle(filename):
     if opts.images_delete_recycle:
@@ -294,7 +299,7 @@ def cache_exif(fileinfos):
         json.dump(aes_cache, file)
 
     cache_exif_end = time.time()
-    # logger.warning(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
+    logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
 def atof(text):
     try:
@@ -724,6 +729,7 @@ def on_ui_settings():
     shared.opts.add_option("images_copy_image", shared.OptionInfo(False, "Move to favorites button copies instead of moving", section=section))
     shared.opts.add_option("images_delete_message", shared.OptionInfo(True, "Print image deletion messages to the console", section=section))
     shared.opts.add_option("images_logger_warning", shared.OptionInfo(False, "Print warning logs to the console", section=section))
+    shared.opts.add_option("images_logger_debug", shared.OptionInfo(False, "Print debug logs to the console", section=section))
     shared.opts.add_option("images_delete_recycle", shared.OptionInfo(False, "Use recycle bin when deleting images", section=section))
     shared.opts.add_option("images_history_page_columns", shared.OptionInfo(6, "Number of columns on the page", section=section))
     shared.opts.add_option("images_history_page_rows", shared.OptionInfo(6, "Number of rows on the page", section=section))

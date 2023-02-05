@@ -257,7 +257,9 @@ def cache_exif(fileinfos):
         if not found_exif or not found_aes:
             try:
                 finfo_exif[fi_info[0]] = "0"
+                exif_cache[fi_info[0]] = "0"
                 finfo_aes[fi_info[0]] = "0"
+                aes_cache[fi_info[0]] = "0"
                 if fi_info[0].endswith(image_ext_list[0]):
                     image = PngImageFile(fi_info[0])
                 else:

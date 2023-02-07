@@ -103,7 +103,7 @@ function images_history_delete(del_num, tabname, image_index){
             buttons[image_index + i + img_num].style.display = 'none';
             next_img = image_index + i + 1
         }
-        var bnt;
+        var btn;
         if (next_img  >= img_num){
             btn = buttons[image_index - 1];
         } else {            
@@ -165,16 +165,20 @@ document.addEventListener("DOMContentLoaded", function() {
             for (var i in images_history_tab_list ){
                 let tabname = images_history_tab_list[i]
                 var buttons = gradioApp().querySelectorAll('#' + tabname + '_images_history .gallery-item');
-                buttons.forEach(function(bnt){    
-                    bnt.addEventListener('click', images_history_click_image, true);
-                    document.onkeyup = function(e){
+                buttons.forEach(function(button){    
+                    button.addEventListener('click', images_history_click_image, true);
+                    document.onkeyup = function(e) {
+                        if (!checkImageBrowserActive()) {
+                            return;
+                        }
                         clearTimeout(timer)
                         timer = setTimeout(() => {
-                            let tab = gradioApp().getElementById("tab_images_history").getElementsByClassName("bg-white px-4 pb-2 pt-1.5 rounded-t-lg border-gray-200 -mb-[2px] border-2 border-b-0")[0].innerText
-                            bnt = gradioApp().getElementById(tab+"_images_history_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')[0]
-                            images_history_click_image.call(bnt)
-                        },500)
-                      
+                            var gallery_btn = gradioApp().getElementById(getCurrentTabName() +"_images_history_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg');
+                            gallery_btn = gallery_btn && gallery_btn.length > 0 ? gallery_btn[0] : null;
+                            if (gallery_btn) {
+                                images_history_click_image.call(gallery_btn)
+                            }
+                        }, 500);
                     }
                 });
 
@@ -204,10 +208,14 @@ function getCurrentTabName() {
     }
 }
 
+function checkImageBrowserActive() {
+    var ext_active = gradioApp().getElementById("tab_images_history");
+    return ext_active && ext_active.style.display !== "none";
+}
+
 gradioApp().addEventListener("keydown", function(event) {
     // If we are not on the Image Browser Extension, dont listen for keypresses
-    var ext_active = gradioApp().getElementById("tab_images_history");
-    if (!ext_active || ext_active.style.display === "none") {
+    if (!checkImageBrowserActive()) {
         return;
     }
 

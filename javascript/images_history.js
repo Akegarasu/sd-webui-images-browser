@@ -190,3 +190,37 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     mutationObserver.observe(gradioApp(), { childList:true, subtree:true });
 });
+
+function getCurrentTabName() {
+    var tabs = gradioApp().getElementById("images_history_tab").querySelectorAll('[id$="_images_history_container"]');
+
+    for (const element of tabs) {
+      if (element.style.display === "block") {
+        const id = element.id;
+        const index = id.indexOf("_images_history_container");
+        const tabname = id.substring(0, index);
+        return tabname;
+      }
+    }
+}
+
+gradioApp().addEventListener("keydown", function(event) {
+    // If we are not on the Image Browser Extension, dont listen for keypresses
+    var ext_active = gradioApp().getElementById("tab_images_history");
+    if (!ext_active || ext_active.style.display === "none") {
+        return;
+    }
+
+    // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)
+    if (event.code >= "Digit0" && event.code <= "Digit5") {
+        var selectedValue = event.code.charAt(event.code.length - 1);
+        var radioInputs = gradioApp().getElementById( getCurrentTabName() + "_images_ranking").getElementsByTagName("input");
+        for (const input of radioInputs) {
+            if (input.value === selectedValue || (selectedValue === '0' && input === radioInputs[radioInputs.length - 1])) {
+                input.checked = true;
+                input.dispatchEvent(new Event("change"));
+                break;
+            }
+        }
+    }
+});

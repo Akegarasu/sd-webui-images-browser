@@ -545,7 +545,7 @@ def create_tab(tabname):
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
                     with gr.Column(scale=10):                            
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive=True)
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_images_ranking", interactive=True)
                         auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
                     with gr.Row() as delete_panel:
@@ -717,7 +717,7 @@ def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as images_history:
         with gr.Tabs(elem_id="images_history_tab") as tabs:
             for tab in tabs_list:
-                with gr.Tab(tab):
+                with gr.Tab(tab, elem_id=f"{tab}_images_history_container"):
                     with gr.Blocks(analytics_enabled=False) :
                         create_tab(tab)
         gr.Checkbox(opts.images_history_preload, elem_id="images_history_preload", visible=False)         

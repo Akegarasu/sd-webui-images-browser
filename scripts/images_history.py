@@ -718,7 +718,7 @@ def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as images_history:
         with gr.Tabs(elem_id="images_history_tab") as tabs:
             for tab in tabs_list:
-                with gr.Tab(tab):
+                with gr.Tab(tab, elem_id=f"{tab}_images_history_container"):
                     with gr.Blocks(analytics_enabled=False) :
                         create_tab(tab)
         gr.Checkbox(opts.images_history_preload, elem_id="images_history_preload", visible=False)         

@@ -14,6 +14,7 @@ from modules import shared, scripts, images
 from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton
+from scripts.wib import wib_db
 from PIL import Image
 from PIL.ExifTags import TAGS
 from PIL.JpegImagePlugin import JpegImageFile
@@ -22,25 +23,23 @@ from pathlib import Path
 from send2trash import send2trash
 from typing import List, Tuple
 
+yappi_do = False
 favorite_tab_name = "Favorites"
-tabs_list = ["txt2img", "img2img",  "instruct-pix2pix", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
+tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
 num_of_imgs_per_page = 0
 loads_files_num = 0
-path_recorder_filename = os.path.join(scripts.basedir(), "path_recorder.txt")
-path_recorder_filename_tmp = f"{path_recorder_filename}.tmp"
-aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
-exif_cache_file = os.path.join(scripts.basedir(), "exif_data.json")
-ranking_file = os.path.join(scripts.basedir(), "ranking.json")
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
 cur_ranking_value="0"
 finfo_aes = {}
+exif_cache = {}
 finfo_exif = {}
+aes_cache = {}
 none_select = "Nothing selected"
 refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
-#warning_permission = "You have no permission to visit {}. If you want to visit all directories, add command line argument option '--administrator', <a style='color:#990' href='https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Command-Line-Arguments-and-Settings' target='_blank' rel='noopener noreferrer'>More details here</a>"
 current_depth = 0
+init = True
 
 logger = logging.getLogger(__name__)
 logger_mode = logging.ERROR
@@ -73,19 +72,16 @@ def img_path_subdirs_get(img_path):
 
 def img_path_add_remove(img_dir, path_recorder, add_remove, img_path_depth):
     if add_remove == "add" or (add_remove == "remove" and img_dir in path_recorder):
-        if os.path.exists(path_recorder_filename_tmp):
-            os.remove(path_recorder_filename_tmp)
         if add_remove == "add":
             path_recorder[img_dir] = {
                 "depth": int(img_path_depth),
                 "path_display": f"{img_dir} [{int(img_path_depth)}]"
             }
+            wib_db.update_path_recorder(img_dir, path_recorder[img_dir]["depth"], path_recorder[img_dir]["path_display"])
         else:
             del path_recorder[img_dir]
+            wib_db.delete_path_recorder(img_dir)
         path_recorder = {key: value for key, value in sorted(path_recorder.items(), key=lambda x: x[0].lower())}
-        with open(path_recorder_filename_tmp, "w") as f:
-            json.dump(path_recorder, f, indent=4)
-        os.replace(path_recorder_filename_tmp, path_recorder_filename)
         path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
     if add_remove == "remove":
         selected = None
@@ -101,19 +97,7 @@ def sort_order_flip(turn_page_switch, sort_order):
     return 1, -turn_page_switch, sort_order
 
 def read_path_recorder(path_recorder, path_recorder_formatted):
-    if os.path.exists(path_recorder_filename):
-        try:
-            with open(path_recorder_filename) as f:
-                path_recorder = json.load(f)
-        except json.JSONDecodeError:
-            with open(path_recorder_filename) as f:
-                path = f.readline().rstrip("\n")
-                while len(path) > 0:
-                    path_recorder[path] = {
-                        "depth": 0,
-                        "path_display": f"{path} [0]"
-                    }
-                    path = f.readline().rstrip("\n")
+    path_recorder = wib_db.load_path_recorder()
     path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
     path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: x.lower())
     return path_recorder, path_recorder_formatted
@@ -170,20 +154,6 @@ def save_image(file_name):
     else:
         return "<div style='color:#999'>Image not found (may have been already moved)</div>"
 
-def create_ranked_file(filename, ranking):
-    if os.path.isfile(filename):
-        if not os.path.isfile(ranking_file):
-            data = {}
-            
-        else:
-            with open(ranking_file, 'r') as file:
-                data = json.load(file)
-
-        data[filename] = ranking
-
-        with open(ranking_file, 'w') as file:
-            json.dump(data, file, indent=0)
-
 def delete_image(delete_num, name, filenames, image_index, visible_num):
     if name == "":
         return filenames, delete_num
@@ -232,30 +202,29 @@ def traverse_all_files(curr_path, image_list, tabname_box, img_path_depth) -> Li
     return image_list
 
 def cache_exif(fileinfos):
-    exif_cache = {}
-    aes_cache = {}
+    global finfo_exif, exif_cache, finfo_aes, aes_cache
 
-    if os.path.isfile(exif_cache_file):
-        with open(exif_cache_file, 'r') as file:
-            exif_cache = json.load(file)
-    if os.path.isfile(aes_cache_file):
-        with open(aes_cache_file, 'r') as file:
-            aes_cache = json.load(file)
-
+    if yappi_do:
+        import yappi
+        import pandas as pd
+        yappi.set_clock_type("wall")
+        yappi.start()
+    
     cache_exif_start = time.time()
     new_exif = 0
     new_aes = 0
+    conn, cursor = wib_db.transaction_begin()
     for fi_info in fileinfos:
-        found_exif = False
-        found_aes = False
-        if fi_info[0] in exif_cache:
-            finfo_exif[fi_info[0]] = exif_cache[fi_info[0]]
-            found_exif = True
-        if fi_info[0] in aes_cache:
-            finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
-            found_aes = True
-        if not found_exif or not found_aes:
-            try:
+        if any(fi_info[0].endswith(ext) for ext in image_ext_list):
+            found_exif = False
+            found_aes = False
+            if fi_info[0] in exif_cache:
+                finfo_exif[fi_info[0]] = exif_cache[fi_info[0]]
+                found_exif = True
+            if fi_info[0] in aes_cache:
+                finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
+                found_aes = True
+            if not found_exif or not found_aes:
                 finfo_exif[fi_info[0]] = "0"
                 exif_cache[fi_info[0]] = "0"
                 finfo_aes[fi_info[0]] = "0"
@@ -268,12 +237,17 @@ def cache_exif(fileinfos):
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
+                    wib_db.update_exif_data(conn, fi_info[0], allExif)
                     new_exif = new_exif + 1
                     m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", allExif)
                     if m:
-                        finfo_aes[fi_info[0]] = m.group(1)
-                        aes_cache[fi_info[0]] = m.group(1)
-                        new_aes = new_aes + 1
+                        aes_value = m.group(1)
+                    else:
+                        aes_value = "0"
+                    finfo_aes[fi_info[0]] = aes_value
+                    aes_cache[fi_info[0]] = aes_value
+                    wib_db.update_aes_data(conn, fi_info[0], aes_value)
+                    new_aes = new_aes + 1
                 else:
                     try:
                         filename = os.path.splitext(fi_info[0])[0] + ".txt"
@@ -283,22 +257,41 @@ def cache_exif(fileinfos):
                                 geninfo += line
                         finfo_exif[fi_info[0]] = geninfo
                         exif_cache[fi_info[0]] = geninfo
+                        wib_db.update_exif_data(conn, fi_info[0], geninfo)
                         new_exif = new_exif + 1
                         m = re.search("(?:aesthetic_score:|Score:) (\d+.\d+)", geninfo)
                         if m:
-                            finfo_aes[fi_info[0]] = m.group(1)
-                            aes_cache[fi_info[0]] = m.group(1)
-                            new_aes = new_aes + 1
+                            aes_value = m.group(1)
+                        else:
+                            aes_value = "0"
+                        finfo_aes[fi_info[0]] = aes_value
+                        aes_cache[fi_info[0]] = aes_value
+                        wib_db.update_aes_data(conn, fi_info[0], aes_value)
+                        new_aes = new_aes + 1
                     except Exception:
                         logger.warning(f"No EXIF in PNG/JPG or txt file for {fi_info[0]}")
-            except SyntaxError:
-                logger.warning(f"Non-PNG/JPG file in directory when doing EXIF check: {fi_info[0]}")
+                        # Saved with defaults to not scan it again next time
+                        finfo_exif[fi_info[0]] = "0"
+                        exif_cache[fi_info[0]] = "0"
+                        allExif = "0"
+                        wib_db.update_exif_data(conn, fi_info[0], allExif)
+                        new_exif = new_exif + 1
+                        aes_value = "0"
+                        finfo_aes[fi_info[0]] = aes_value
+                        aes_cache[fi_info[0]] = aes_value
+                        wib_db.update_aes_data(conn, fi_info[0], aes_value)
+                        new_aes = new_aes + 1
+    
+    wib_db.transaction_end(conn, cursor)
 
-    with open(exif_cache_file, 'w') as file:
-        json.dump(exif_cache, file, indent=0)
-
-    with open(aes_cache_file, 'w') as file:
-        json.dump(aes_cache, file, indent=0)
+    if yappi_do:
+        yappi.stop()
+        pd.set_option('display.float_format', lambda x: '%.6f' % x)
+        yappi_stats = yappi.get_func_stats().strip_dirs()
+        data = [(s.name, s.ncall, s.tsub, s.ttot, s.ttot/s.ncall) for s in yappi_stats]
+        df = pd.DataFrame(data, columns=['name', 'ncall', 'tsub', 'ttot', 'tavg'])
+        print(df.to_string(index=False))
+        yappi.get_thread_stats().print_all()
 
     cache_exif_end = time.time()
     logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
@@ -320,7 +313,7 @@ def natural_keys(text):
     return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
 
-def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
+def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search):
     global current_depth
     current_depth = 0
     fileinfos = traverse_all_files(dir_name, [], tabname_box, img_path_depth)
@@ -333,7 +326,26 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
         filenames = [finfo[0] for finfo in fileinfos]
     if len(exif_keyword) != 0:
-        fileinfos = [x for x in fileinfos if exif_keyword.lower() in finfo_exif[x[0]].lower()]
+        if negative_prompt_search == "Yes":
+            fileinfos = [x for x in fileinfos if exif_keyword.lower() in finfo_exif[x[0]].lower()]
+        else:
+            result = []
+            for file_info in fileinfos:
+                file_name = file_info[0]
+                file_exif = finfo_exif[file_name].lower()
+                start_index = file_exif.find("negative prompt: ")
+                end_index = file_exif.find("\n", start_index)
+                if negative_prompt_search == "Only":
+                    sub_string = file_exif[start_index:end_index].split("negative prompt: ")[-1].strip()
+                    if exif_keyword.lower() in sub_string:
+                        result.append(file_info)
+                else:
+                    sub_string = file_exif[start_index:end_index].strip()
+                    file_exif = file_exif.replace(sub_string, "")
+                    
+                    if exif_keyword.lower() in file_exif:
+                        result.append(file_info)
+            fileinfos = result
         filenames = [finfo[0] for finfo in fileinfos]
     if len(aes_filter) != 0:
         fileinfos = [x for x in fileinfos if finfo_aes[x[0]] >= aes_filter]
@@ -393,16 +405,13 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search):
+    if img_path == "":
+        return [], page_index, [],  "", "",  "", 0, ""
+
     img_path, _ = pure_path(img_path)
-    #if not cmd_opts.administrator:
-    #    head = os.path.abspath(".")
-    #    abs_path = os.path.abspath(img_path)
-    #    if len(abs_path) < len(head) or abs_path[:len(head)] != head:
-    #        warning = warning_permission.format(img_path)
-    #        return None, 0, None, "", "", "", None, None, warning
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword)
+        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -444,14 +453,6 @@ def change_dir(img_dir, path_recorder, load_switch, img_path_history, img_path_d
         return warning, gr.update(visible=False), img_path_history, path_recorder, load_switch, img_path, img_path_depth
     else:
         img_dir, img_path_depth = pure_path(img_dir)
-        #try:
-        #    if not cmd_opts.administrator:        
-        #        head = os.path.abspath(".")
-        #        abs_path = os.path.abspath(img_dir)
-        #        if len(abs_path) < len(head) or abs_path[:len(head)] != head:
-        #            warning = warning_permission.format(img_dir)
-        #except:
-        #    pass  
         if warning is None:
             try:
                 if os.path.exists(img_dir):
@@ -472,21 +473,21 @@ def update_move_text(unused):
     return f'{"Move" if not opts.images_copy_image else "Copy"} to favorites'
 
 def get_ranking(filename):
-    ranking_value = "None"
-    if os.path.isfile(ranking_file):
-        with open(ranking_file, 'r') as file:
-            data = json.load(file)
-            if filename in data:
-                ranking_value = data[filename]
-                
+    ranking_value = wib_db.select_ranking(filename)
     return ranking_value
 
 def create_tab(tabname):
+    global init, exif_cache, aes_cache
     custom_dir = False
     path_recorder = {}
     path_recorder_formatted = []
 
-    
+    if init:
+        wib_db.check()
+        exif_cache = wib_db.load_exif_data(exif_cache)
+        aes_cache = wib_db.load_aes_data(aes_cache)
+        init = False
+
     if tabname == "txt2img":
         dir_name = opts.outdir_txt2img_samples
     elif tabname == "img2img":
@@ -545,7 +546,7 @@ def create_tab(tabname):
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
                     with gr.Column(scale=10):                            
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_images_ranking", interactive=True)
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive=True, visible=False)
                         auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
                     with gr.Row() as delete_panel:
@@ -556,12 +557,13 @@ def create_tab(tabname):
                 
                 with gr.Column(scale=1): 
                     with gr.Row(scale=0.5):
-                         sort_by = gr.Dropdown(value="date", choices=["path name", "date", "aesthetic_score", "random", "cfg scale", "steps", "seed", "sampler", "size", "model", "model hash", "ranking"], label="sort by")
-                         sort_order = ToolButton(value=down_symbol)
+                        sort_by = gr.Dropdown(value="date", choices=["path name", "date", "aesthetic_score", "random", "cfg scale", "steps", "seed", "sampler", "size", "model", "model hash", "ranking"], label="sort by")
+                        sort_order = ToolButton(value=down_symbol)
                     with gr.Row():
                         keyword = gr.Textbox(value="", label="filename keyword")
-                        exif_keyword = gr.Textbox(value="", label="exif keyword")
-                        
+                    with gr.Row():
+                            exif_keyword = gr.Textbox(value="", label="exif keyword")
+                            negative_prompt_search = gr.Radio(value="No", choices=["No", "Yes", "Only"], label="Include negative prompt in exif search", interactive=True)
                     with gr.Column():
                         ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive=True)
                     with gr.Row():  
@@ -629,11 +631,11 @@ def create_tab(tabname):
 
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword], 
+        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tabname_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search], 
         outputs=[filenames, page_index, history_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box]
     )
     turn_page_switch.change(fn=None, inputs=[tabname_box], outputs=None, _js="images_history_turnpage")
-    turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel])
+    turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel, ranking])
 
     sort_order.click(
         fn=sort_order_flip,
@@ -665,7 +667,7 @@ def create_tab(tabname):
 
     # other functions
     set_index.click(show_image_info, _js="images_history_get_current_img", inputs=[tabname_box, image_index, page_index, filenames], outputs=[img_file_name, img_file_time, image_index, hidden])
-    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel])
+    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel, ranking])
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
 
@@ -673,10 +675,9 @@ def create_tab(tabname):
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2])
     
     #ranking
-    ranking.change(create_ranked_file, inputs=[img_file_name, ranking])
+    ranking.change(wib_db.update_ranking, inputs=[img_file_name, ranking])
     #ranking.change(show_next_image_info, _js="images_history_get_current_img", inputs=[tabname_box, image_index, page_index, auto_next], outputs=[img_file_name, img_file_time, image_index, hidden])
-    
-    
+        
     try:
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, hidden, img_file_info)
     except:
@@ -742,7 +743,3 @@ def on_ui_settings():
 
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_ui_tabs(on_ui_tabs)
-
-#TODO:
-#move by arrow key
-#generate info in txt

@@ -119,6 +119,12 @@ def history2path(img_path_history):
     img_path, _ = pure_path(img_path_history)
     return img_path
 
+def totxt(file):
+    base, _ = os.path.splitext(file)
+    file_txt = base + '.txt'
+
+    return file_txt
+
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
         name, ext = os.path.splitext(basename)
@@ -137,17 +143,30 @@ def reduplicative_file_move(src, dst):
         return f"{name}({max_num + 1}){ext}"
     name = os.path.basename(src)
     save_name = os.path.join(dst, name)
+    src_txt_exists = False
+    if opts.images_txt_files:
+        src_txt = totxt(src)
+        if os.path.exists(src_txt):
+            src_txt_exists = True
     if not os.path.exists(save_name):
         if opts.images_copy_image:
             shutil.copy2(src, dst)
+            if opts.images_txt_files and src_txt_exists:
+                shutil.copy2(src_txt, dst)
         else:
             shutil.move(src, dst)
+            if opts.images_txt_files and src_txt_exists:
+                shutil.move(src_txt, dst)
     else:
         name = same_name_file(name, dst)
         if opts.images_copy_image:
             shutil.copy2(src, os.path.join(dst, name))
+            if opts.images_txt_files and src_txt_exists:
+                shutil.copy2(src_txt, totxt(os.path.join(dst, name)))
         else:
             shutil.move(src, os.path.join(dst, name))
+            if opts.images_txt_files and src_txt_exists:
+                shutil.move(src_txt, totxt(os.path.join(dst, name)))
 
 def save_image(file_name, filenames, page_index, turn_page_switch):
     if file_name is not None and os.path.exists(file_name):
@@ -185,9 +204,10 @@ def delete_image(delete_num, name, filenames, image_index, visible_num):
                         print(f"Deleting file {name}")
                     delete_recycle(name)
                     visible_num -= 1
-                    txt_file = os.path.splitext(name)[0] + ".txt"
-                    if os.path.exists(txt_file):
-                        delete_recycle(txt_file)
+                    if opts.images_txt_files:
+                        txt_file = totxt(name)
+                        if os.path.exists(txt_file):
+                            delete_recycle(txt_file)
                 else:
                     print(f"File does not exist {name}")
             else:
@@ -741,6 +761,7 @@ def on_ui_settings():
     shared.opts.add_option("images_history_preload", shared.OptionInfo(False, "Preload images at startup", section=section))
     shared.opts.add_option("images_copy_image", shared.OptionInfo(False, "Move to favorites button copies instead of moving", section=section))
     shared.opts.add_option("images_delete_message", shared.OptionInfo(True, "Print image deletion messages to the console", section=section))
+    shared.opts.add_option("images_txt_files", shared.OptionInfo(True, "Move/Copy/Delete matching .txt files", section=section))
     shared.opts.add_option("images_logger_warning", shared.OptionInfo(False, "Print warning logs to the console", section=section))
     shared.opts.add_option("images_logger_debug", shared.OptionInfo(False, "Print debug logs to the console", section=section))
     shared.opts.add_option("images_delete_recycle", shared.OptionInfo(False, "Use recycle bin when deleting images", section=section))

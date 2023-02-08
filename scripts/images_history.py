@@ -81,8 +81,9 @@ def img_path_add_remove(img_dir, path_recorder, add_remove, img_path_depth):
         else:
             del path_recorder[img_dir]
             wib_db.delete_path_recorder(img_dir)
-        path_recorder = {key: value for key, value in sorted(path_recorder.items(), key=lambda x: x[0].lower())}
         path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
+        path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: natural_keys(x.lower()))
+
     if add_remove == "remove":
         selected = None
     else:
@@ -99,7 +100,8 @@ def sort_order_flip(turn_page_switch, sort_order):
 def read_path_recorder(path_recorder, path_recorder_formatted):
     path_recorder = wib_db.load_path_recorder()
     path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
-    path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: x.lower())
+    path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: natural_keys(x.lower()))
+
     return path_recorder, path_recorder_formatted
 
 def pure_path(path):
@@ -147,12 +149,20 @@ def reduplicative_file_move(src, dst):
         else:
             shutil.move(src, os.path.join(dst, name))
 
-def save_image(file_name):
+def save_image(file_name, filenames, page_index, turn_page_switch):
     if file_name is not None and os.path.exists(file_name):
         reduplicative_file_move(file_name, opts.outdir_save)
-        return "<div style='color:#999'>Moved to favorites</div>"
+        if opts.images_copy_image:
+            message = "<div style='color:#999'>Copied to favorites</div>"
+        else:
+            message = "<div style='color:#999'>Moved to favorites</div>"
+            # Force page refresh with checking filenames
+            filenames = []
+            turn_page_switch = -turn_page_switch
     else:
-        return "<div style='color:#999'>Image not found (may have been already moved)</div>"
+        message = "<div style='color:#999'>Image not found (may have been already moved)</div>"
+
+    return message, filenames, page_index, turn_page_switch
 
 def delete_image(delete_num, name, filenames, image_index, visible_num):
     if name == "":
@@ -610,7 +620,7 @@ def create_tab(tabname):
     delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num])
     delete.click(fn=None, _js="images_history_delete", inputs=[delete_num, tabname_box, image_index], outputs=None) 
     if tabname != favorite_tab_name: 
-        save_btn.click(save_image, inputs=[img_file_name], outputs=[collected_warning])
+        save_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch], outputs=[collected_warning, filenames, page_index, turn_page_switch])
         img_file_name.change(fn=update_move_text, inputs=[img_file_name], outputs=[save_btn])
 
     #turn page

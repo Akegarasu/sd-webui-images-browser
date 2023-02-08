@@ -546,7 +546,7 @@ def create_tab(tabname):
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
                     with gr.Column(scale=10):                            
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", interactive=True, visible=False)
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_images_ranking", interactive=True, visible=False)
                         auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     history_gallery = gr.Gallery(show_label=False, elem_id=tabname + "_images_history_gallery").style(grid=opts.images_history_page_columns)
                     with gr.Row() as delete_panel:

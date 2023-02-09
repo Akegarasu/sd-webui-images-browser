@@ -115,8 +115,8 @@ def pure_path(path):
         depth = 0
     return path, depth
 
-def history2path(img_path_history):
-    img_path, _ = pure_path(img_path_history)
+def browser2path(img_path_browser):
+    img_path, _ = pure_path(img_path_browser)
     return img_path
 
 def totxt(file):
@@ -475,12 +475,12 @@ def show_next_image_info(tabname_box, num, page_index, filenames, auto_next):
         num = int(num) + 1
     return file, tm, num, file, ""
 
-def change_dir(img_dir, path_recorder, load_switch, img_path_history, img_path_depth, img_path):
+def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):
     warning = None
     img_path, _ = pure_path(img_path)
     img_path_depth_org = img_path_depth
     if img_dir == none_select:
-        return warning, gr.update(visible=False), img_path_history, path_recorder, load_switch, img_path, img_path_depth
+        return warning, gr.update(visible=False), img_path_browser, path_recorder, load_switch, img_path, img_path_depth
     else:
         img_dir, img_path_depth = pure_path(img_dir)
         if warning is None:
@@ -495,9 +495,9 @@ def change_dir(img_dir, path_recorder, load_switch, img_path_history, img_path_d
             except:
                 warning = "The format of the directory is incorrect"   
         if warning is None: 
-            return "", gr.update(visible=True), img_path_history, path_recorder, img_dir, img_dir, img_path_depth
+            return "", gr.update(visible=True), img_path_browser, path_recorder, img_dir, img_dir, img_path_depth
         else:
-            return warning, gr.update(visible=False), img_path_history, path_recorder, load_switch, img_path, img_path_depth_org
+            return warning, gr.update(visible=False), img_path_browser, path_recorder, load_switch, img_path, img_path_depth_org
 
 def update_move_text(unused):
     return f'{"Move" if not opts.image_browser_copy_image else "Copy"} to favorites'
@@ -553,7 +553,7 @@ def create_tab(tabname):
 
     with gr.Row(visible= custom_dir): 
         with gr.Column(scale=10):
-            img_path_history = gr.Dropdown(choices=path_recorder_formatted, label="Saved directories")
+            img_path_browser = gr.Dropdown(choices=path_recorder_formatted, label="Saved directories")
         with gr.Column(scale=1):
             img_path_remove_button = gr.Button(value="Remove from saved directories")
             path_recorder = gr.State(path_recorder)
@@ -631,10 +631,10 @@ def create_tab(tabname):
                         img_path_add = gr.Textbox(value="add")
                         img_path_remove = gr.Textbox(value="remove")
 
-    change_dir_outputs = [warning_box, main_panel, img_path_history, path_recorder, load_switch, img_path, img_path_depth]
-    img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_history, img_path_depth, img_path], outputs=change_dir_outputs)
-    img_path_history.change(change_dir, inputs=[img_path_history, path_recorder, load_switch, img_path_history, img_path_depth, img_path], outputs=change_dir_outputs)
-    # img_path_history.change(history2path, inputs=[img_path_history], outputs=[img_path])
+    change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
+    img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
+    img_path_browser.change(change_dir, inputs=[img_path_browser, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
+    # img_path_browser.change(browser2path, inputs=[img_path_browser], outputs=[img_path])
 
     #delete
     delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num])
@@ -681,18 +681,18 @@ def create_tab(tabname):
     )
     img_path_subdirs.change(
         fn=change_dir, 
-        inputs=[img_path_subdirs, path_recorder, load_switch, img_path_history, img_path_depth, img_path], 
+        inputs=[img_path_subdirs, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], 
         outputs=change_dir_outputs
     )
     img_path_save_button.click(
         fn=img_path_add_remove, 
         inputs=[img_path, path_recorder, img_path_add, img_path_depth], 
-        outputs=[path_recorder, img_path_history]
+        outputs=[path_recorder, img_path_browser]
     )
     img_path_remove_button.click(
         fn=img_path_add_remove, 
         inputs=[img_path, path_recorder, img_path_remove], 
-        outputs=[path_recorder, img_path_history]
+        outputs=[path_recorder, img_path_browser]
     )
 
     # other functions
@@ -755,22 +755,51 @@ def on_ui_tabs():
         gr.Textbox(",".join(tabs_list), elem_id="image_browser_tabnames_list", visible=False) 
     return (image_browser , "Image Browser", "image_browser"),
 
+def move_setting(options, section, added):
+    try:
+        old_value = shared.opts.__getattr__(options[3])
+    except AttributeError:
+        old_value = None
+    try:
+        new_value = shared.opts.__getattr__(options[0])
+    except AttributeError:
+        new_value = None
+    if old_value is not None and new_value is None:
+        # Add new option
+        shared.opts.add_option(options[0], shared.OptionInfo(options[1], options[2], section=section))
+        shared.opts.__setattr__(options[0], old_value)
+        added = added + 1
+        # Remove old option
+        shared.opts.data.pop(options[3], None)
+
+    return added
+
 def on_ui_settings():
-    section = ('images-browser', "Image Browser")
-    shared.opts.add_option("image_browser_with_subdirs", shared.OptionInfo(True, "Include images in sub directories", section=section))
-    shared.opts.add_option("image_browser_preload", shared.OptionInfo(False, "Preload images at startup", section=section))
-    shared.opts.add_option("image_browser_copy_image", shared.OptionInfo(False, "Move to favorites button copies instead of moving", section=section))
-    shared.opts.add_option("image_browser_delete_message", shared.OptionInfo(True, "Print image deletion messages to the console", section=section))
-    shared.opts.add_option("image_browser_txt_files", shared.OptionInfo(True, "Move/Copy/Delete matching .txt files", section=section))
-    shared.opts.add_option("image_browser_logger_warning", shared.OptionInfo(False, "Print warning logs to the console", section=section))
-    shared.opts.add_option("image_browser_logger_debug", shared.OptionInfo(False, "Print debug logs to the console", section=section))
-    shared.opts.add_option("image_browser_delete_recycle", shared.OptionInfo(False, "Use recycle bin when deleting images", section=section))
-    shared.opts.add_option("image_browser_scan_exif", shared.OptionInfo(True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", section=section))
+    image_browser_options = []
+    # [current setting_name], [default], [label], [old setting_name]
+    image_browser_options.append(("image_browser_with_subdirs", True, "Include images in sub directories", "images_history_with_subdirs"))
+    image_browser_options.append(("image_browser_preload", False, "Preload images at startup", "images_history_preload"))
+    image_browser_options.append(("image_browser_copy_image", False, "Move to favorites button copies instead of moving", "images_copy_image"))
+    image_browser_options.append(("image_browser_delete_message", True, "Print image deletion messages to the console", "images_delete_message"))
+    image_browser_options.append(("image_browser_txt_files", True, "Move/Copy/Delete matching .txt files", "images_txt_files"))
+    image_browser_options.append(("image_browser_logger_warning", False, "Print warning logs to the console", "images_logger_warning"))
+    image_browser_options.append(("image_browser_logger_debug", False, "Print debug logs to the console", "images_logger_debug"))
+    image_browser_options.append(("image_browser_delete_recycle", False, "Use recycle bin when deleting images", "images_delete_recycle"))
+    image_browser_options.append(("image_browser_scan_exif", True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", "images_scan_exif"))
+    image_browser_options.append(("image_browser_page_columns", 6, "Number of columns on the page", "images_history_page_columns"))
+    image_browser_options.append(("image_browser_page_rows", 6, "Number of rows on the page", "images_history_page_rows"))
+    image_browser_options.append(("image_browser_pages_perload", 20, "Minimum number of pages per load", "images_history_pages_perload"))
 
-    shared.opts.add_option("image_browser_page_columns", shared.OptionInfo(6, "Number of columns on the page", section=section))
-    shared.opts.add_option("image_browser_page_rows", shared.OptionInfo(6, "Number of rows on the page", section=section))
-    shared.opts.add_option("image_browser_pages_perload", shared.OptionInfo(20, "Minimum number of pages per load", section=section))
+    section = ('image-browser', "Image Browser")
+    # Move historic setting names to current names
+    added = 0
+    for i in range(len(image_browser_options)):
+        added = move_setting(image_browser_options[i], section, added)
+    if added > 0:
+        shared.opts.save(shared.config_filename)
 
+    for i in range(len(image_browser_options)):
+        shared.opts.add_option(image_browser_options[i][0], shared.OptionInfo(image_browser_options[i][1], image_browser_options[i][2], section=section))
 
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_ui_tabs(on_ui_tabs)

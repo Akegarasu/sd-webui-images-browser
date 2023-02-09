@@ -575,10 +575,11 @@ def create_tab(tabname):
                         refresh_index_button = ToolButton(value=refresh_symbol)
                         next_page = gr.Button('Next Page')
                         end_page = gr.Button('End Page') 
-                    with gr.Column(scale=10):                            
+                    with gr.Row():
                         ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_images_ranking", interactive=True, visible=False)
                         auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
-                    image_gallery = gr.Gallery(show_label=False, elem_id=f"{tabname}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
+                    with gr.Row():
+                        image_gallery = gr.Gallery(show_label=False, elem_id=f"{tabname}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
                     with gr.Row() as delete_panel:
                         with gr.Column(scale=1):
                             delete_num = gr.Number(value=1, interactive=True, label="delete next")

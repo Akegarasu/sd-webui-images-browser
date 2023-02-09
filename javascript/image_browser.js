@@ -129,7 +129,7 @@ function image_browser_init(){
             var tab = image_browser_tab_list[i];
             gradioApp().getElementById(tab + '_image_browser').classList.add("image_browser_container");
             gradioApp().getElementById(tab + '_image_browser_set_index').classList.add("image_browser_set_index");
-            gradioApp().getElementById(tab + '_image_browser_del_button').classList.add("image_browser_del_button");
+            gradioApp().getElementById(tab + '_image_browser_del_img_btn').classList.add("image_browser_del_img_btn");
             gradioApp().getElementById(tab + '_image_browser_gallery').classList.add("image_browser_gallery");  
             }
 

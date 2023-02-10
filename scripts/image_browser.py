@@ -570,13 +570,13 @@ def create_tab(tabname):
                 with gr.Column(scale=2):    
                     with gr.Row():       
                         first_page = gr.Button('First Page')
-                        prev_page = gr.Button('Prev Page')
+                        prev_page = gr.Button('Prev Page', elem_id=f"{tabname}_image_browser_prev_page")
                         page_index = gr.Number(value=1, label="Page Index")
                         refresh_index_button = ToolButton(value=refresh_symbol)
-                        next_page = gr.Button('Next Page')
+                        next_page = gr.Button('Next Page', elem_id=f"{tabname}_image_browser_next_page")
                         end_page = gr.Button('End Page') 
                     with gr.Row():
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_images_ranking", interactive=True, visible=False)
+                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tabname}_image_browser_ranking", interactive=True, visible=False)
                         auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     with gr.Row():
                         image_gallery = gr.Gallery(show_label=False, elem_id=f"{tabname}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
@@ -606,7 +606,7 @@ def create_tab(tabname):
                             img_file_time= gr.HTML()
                     with gr.Row(elem_id=f"{tabname}_image_browser_button_panel") as button_panel:
                         if tabname != favorite_tab_name:
-                            save_btn = gr.Button(f'{"Move" if not opts.image_browser_copy_image else "Copy"} to favorites')
+                            favorites_btn = gr.Button(f'{"Move" if not opts.image_browser_copy_image else "Copy"} to favorites', elem_id=f"{tabname}_image_browser_favorites_btn")
                         try:
                             send_to_buttons = modules.generation_parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
                         except:
@@ -641,8 +641,8 @@ def create_tab(tabname):
     delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num])
     delete.click(fn=None, _js="image_browser_delete", inputs=[delete_num, tabname_box, image_index], outputs=None) 
     if tabname != favorite_tab_name: 
-        save_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-        img_file_name.change(fn=update_move_text, inputs=[img_file_name], outputs=[save_btn])
+        favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch], outputs=[collected_warning, filenames, page_index, turn_page_switch])
+        img_file_name.change(fn=update_move_text, inputs=[img_file_name], outputs=[favorites_btn])
 
     #turn page
     first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])

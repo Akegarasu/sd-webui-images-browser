@@ -463,7 +463,9 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info = "<div style='color:#999' align='center'>"
     load_info += f"{length} images in this directory, divided into {int((length + 1) // num_of_imgs_per_page  + 1)} pages"
     load_info += "</div>"
-    return filenames, gr.update(value=page_index, label=f"Page Index (of {max_page_index} pages)"), image_list,  "", "",  "", visible_num, load_info
+    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info
+
+
 
 def get_current_file(tabname_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
@@ -600,7 +602,7 @@ def create_tab(tabname):
                         keyword = gr.Textbox(value="", label="filename keyword")
                     with gr.Row():
                             exif_keyword = gr.Textbox(value="", label="exif keyword")
-                            negative_prompt_search = gr.Radio(value="No", choices=["No", "Yes", "Only"], label="Include negative prompt in exif search", interactive=True)
+                            negative_prompt_search = gr.Radio(value="No", choices=["No", "Yes", "Only"], label="Search negative prompt", interactive=True)
                     with gr.Column():
                         ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive=True)
                     with gr.Row():  

@@ -219,6 +219,12 @@ gradioApp().addEventListener("keydown", function(event) {
         return;
     }
 
+    // If the user is typing in an input field, dont listen for keypresses
+    let target = event.originalTarget || event.explicitOriginalTarget;
+    if (target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
+      return;
+    }
+
     let tabname = image_browser_current_tab();
 
     // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)

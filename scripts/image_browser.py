@@ -263,7 +263,13 @@ def cache_exif(fileinfos):
                     image = PngImageFile(fi_info[0])
                 else:
                     image = JpegImageFile(fi_info[0])
-                allExif = modules.extras.run_pnginfo(image)[1]
+                try:
+                    allExif = modules.extras.run_pnginfo(image)[1]
+                except OSError as e:
+                    if e.errno == 22:
+                        logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                    else:
+                        raise
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif

@@ -11,6 +11,7 @@ archive = os.path.join(scripts.basedir(), "archive")
 db_file = os.path.join(scripts.basedir(), "wib.sqlite3")
 np = "Negative prompt: "
 st = "Steps: "
+timeout = 30
 
 def create_db(cursor):
     cursor.execute('''
@@ -218,7 +219,7 @@ def check():
     return
 
 def load_path_recorder():
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT path, depth, path_display
@@ -229,7 +230,7 @@ def load_path_recorder():
     return path_recorder
 
 def select_ranking(filename):
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT ranking
@@ -244,7 +245,7 @@ def select_ranking(filename):
 
 def update_ranking(file, ranking):
     if ranking != "0":
-        with sqlite3.connect(db_file) as conn:
+        with sqlite3.connect(db_file, timeout=timeout) as conn:
             cursor = conn.cursor()
             cursor.execute('''
             INSERT OR REPLACE
@@ -255,7 +256,7 @@ def update_ranking(file, ranking):
     return
 
 def update_path_recorder(path, depth, path_display):
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         INSERT OR REPLACE
@@ -266,7 +267,7 @@ def update_path_recorder(path, depth, path_display):
     return
 
 def delete_path_recorder(path):
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         DELETE FROM path_recorder
@@ -276,7 +277,7 @@ def delete_path_recorder(path):
     return
 
 def transaction_begin():
-    conn = sqlite3.connect(db_file)
+    conn = sqlite3.connect(db_file, timeout=timeout)
     conn.isolation_level = None
     cursor = conn.cursor()
     cursor.execute("BEGIN")
@@ -299,7 +300,7 @@ def update_aes_data(cursor, file, value):
     return
 
 def load_exif_data(exif_cache):
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT file, group_concat(
@@ -325,7 +326,7 @@ def load_exif_data(exif_cache):
     return exif_cache
 
 def load_aes_data(aes_cache):
-    with sqlite3.connect(db_file) as conn:
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT file, value

@@ -17,6 +17,7 @@ and restart your stable-diffusion-webui, then you can see the new tab "Image Bro
 Please be aware that when scanning a directory for the first time, the png-cache will be built. This can take several minutes, depending on the amount of images.
 
 ## Recent updates
+- Keybindings
 - Additional sorting and filtering by EXIF data including .txt file information
 - Recyle bin option
 - Add/Remove from saved directories, via buttons
@@ -26,6 +27,16 @@ Please be aware that when scanning a directory for the first time, the png-cache
 - Sort order
 - View and save favorites with individual folder depth
 - Now also supports jpg
+
+## Keybindings
+| Key | Explanation |
+|---------|-------------|
+| `0-5` | Ranks the current image, with 0 being the last option (None) |
+| `F` | Adds the current image to Favorites |
+| `R` | Refreshes the image gallery |
+| `Delete` | Deletes the current image |
+| `Ctrl + Arrow Left` | Goes to the previous page of images |
+| `Ctrl + Arrow Right` | Goes to the next page of images |
 
 ## Credit
 

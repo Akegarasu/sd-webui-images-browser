@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function image_browser_current_tab() {
-    var tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]');
+    let tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]');
 
     for (const element of tabs) {
       if (element.style.display === "block") {
@@ -209,7 +209,7 @@ function image_browser_current_tab() {
 }
 
 function image_browser_active() {
-    var ext_active = gradioApp().getElementById("tab_image_browser");
+    let ext_active = gradioApp().getElementById("tab_image_browser");
     return ext_active && ext_active.style.display !== "none";
 }
 
@@ -219,10 +219,12 @@ gradioApp().addEventListener("keydown", function(event) {
         return;
     }
 
+    let tabname = image_browser_current_tab();
+
     // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)
     if (event.code >= "Digit0" && event.code <= "Digit5") {
-        var selectedValue = event.code.charAt(event.code.length - 1);
-        var radioInputs = gradioApp().getElementById( image_browser_current_tab() + "_images_ranking").getElementsByTagName("input");
+        let selectedValue = event.code.charAt(event.code.length - 1);
+        let radioInputs = gradioApp().getElementById(tabname + "_image_browser_ranking").getElementsByTagName("input");
         for (const input of radioInputs) {
             if (input.value === selectedValue || (selectedValue === '0' && input === radioInputs[radioInputs.length - 1])) {
                 input.checked = true;
@@ -230,5 +232,33 @@ gradioApp().addEventListener("keydown", function(event) {
                 break;
             }
         }
+    }
+
+    if (event.code == "KeyF") {
+        if (tabname == "Favorites") {
+            return;
+        }
+        let favoriteBtn = gradioApp().getElementById(tabname + "_image_browser_favorites_btn");
+        favoriteBtn.dispatchEvent(new Event("click"));
+    }
+
+    if (event.code == "KeyR") {
+        let refreshBtn = gradioApp().getElementById(tabname + "_image_browser_renew_page");
+        refreshBtn.dispatchEvent(new Event("click"));
+    }
+
+    if (event.code == "Delete") {
+        let deleteBtn = gradioApp().getElementById(tabname + "_image_browser_del_img_btn");
+        deleteBtn.dispatchEvent(new Event("click"));
+    }
+
+    if (event.code == "ArrowLeft" && event.ctrlKey) {
+        let prevBtn = gradioApp().getElementById(tabname + "_image_browser_prev_page");
+        prevBtn.dispatchEvent(new Event("click"));
+    }
+    
+    if (event.code == "ArrowRight" && event.ctrlKey) {
+        let nextBtn = gradioApp().getElementById(tabname + "_image_browser_next_page");
+        nextBtn.dispatchEvent(new Event("click"));
     }
 });

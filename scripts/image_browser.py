@@ -259,17 +259,20 @@ def cache_exif(fileinfos):
                 exif_cache[fi_info[0]] = "0"
                 finfo_aes[fi_info[0]] = "0"
                 aes_cache[fi_info[0]] = "0"
-                if fi_info[0].endswith(image_ext_list[0]):
-                    image = PngImageFile(fi_info[0])
+                if fi_info[0].endswith(image_ext_list[3]) or fi_info[0].endswith(image_ext_list[4]) or fi_info[0].endswith(image_ext_list[5]):
+                    allExif = False
                 else:
-                    image = JpegImageFile(fi_info[0])
-                try:
-                    allExif = modules.extras.run_pnginfo(image)[1]
-                except OSError as e:
-                    if e.errno == 22:
-                        logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                    if fi_info[0].endswith(image_ext_list[0]):
+                        image = PngImageFile(fi_info[0])
                     else:
-                        raise
+                        image = JpegImageFile(fi_info[0])
+                    try:
+                        allExif = modules.extras.run_pnginfo(image)[1]
+                    except OSError as e:
+                        if e.errno == 22:
+                            logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                        else:
+                            raise
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
@@ -305,7 +308,7 @@ def cache_exif(fileinfos):
                         wib_db.update_aes_data(conn, fi_info[0], aes_value)
                         new_aes = new_aes + 1
                     except Exception:
-                        logger.warning(f"No EXIF in PNG/JPG or txt file for {fi_info[0]}")
+                        logger.warning(f"No EXIF in image or txt file for {fi_info[0]}")
                         # Saved with defaults to not scan it again next time
                         finfo_exif[fi_info[0]] = "0"
                         exif_cache[fi_info[0]] = "0"
@@ -745,7 +748,7 @@ def run_pnginfo(image, image_path, image_file_name):
                 for line in f:
                     geninfo += line
         except Exception:
-            logger.warning(f"No EXIF in PNG or txt file")
+            logger.warning(f"No EXIF in image or txt file")
     return '', geninfo, info
 
 

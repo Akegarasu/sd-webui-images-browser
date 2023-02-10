@@ -369,10 +369,10 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tabname_box, img_path
             for file_info in fileinfos:
                 file_name = file_info[0]
                 file_exif = finfo_exif[file_name].lower()
-                start_index = file_exif.find("negative prompt: ")
+                start_index = file_exif.find("negative_prompt: ")
                 end_index = file_exif.find("\n", start_index)
                 if negative_prompt_search == "Only":
-                    sub_string = file_exif[start_index:end_index].split("negative prompt: ")[-1].strip()
+                    sub_string = file_exif[start_index:end_index].split("negative_prompt: ")[-1].strip()
                     if exif_keyword.lower() in sub_string:
                         result.append(file_info)
                 else:

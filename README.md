@@ -38,6 +38,8 @@ Please be aware that when scanning a directory for the first time, the png-cache
 | `Ctrl + Arrow Left` | Goes to the previous page of images |
 | `Ctrl + Arrow Right` | Goes to the next page of images |
 
+(Ctrl can be changed in settings)
+
 ## Credit
 
 Credit goes to the original maintainer of this extension: https://github.com/yfszzx and to major contributor https://github.com/Klace

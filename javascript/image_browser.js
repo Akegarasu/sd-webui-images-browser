@@ -240,6 +240,22 @@ gradioApp().addEventListener("keydown", function(event) {
         }
     }
 
+    let mod_keys = gradioApp().querySelector(`#${tabname}_image_browser_mod_keys textarea`).value;
+    let modifiers_pressed = false;
+    if (mod_keys.indexOf("C") !== -1 && mod_keys.indexOf("S") !== -1) {
+        if (event.ctrlKey && event.shiftKey) {
+            modifiers_pressed = true;
+        }
+    } else if (mod_keys.indexOf("S") !== -1) {
+        if (!event.ctrlKey && event.shiftKey) {
+            modifiers_pressed = true;
+        }
+    } else {
+        if (event.ctrlKey && !event.shiftKey) {
+            modifiers_pressed = true;
+        }
+    }
+
     if (event.code == "KeyF") {
         if (tabname == "Favorites") {
             return;
@@ -258,12 +274,12 @@ gradioApp().addEventListener("keydown", function(event) {
         deleteBtn.dispatchEvent(new Event("click"));
     }
 
-    if (event.code == "ArrowLeft" && event.ctrlKey) {
+    if (event.code == "ArrowLeft" && modifiers_pressed) {
         let prevBtn = gradioApp().getElementById(tabname + "_image_browser_prev_page");
         prevBtn.dispatchEvent(new Event("click"));
     }
     
-    if (event.code == "ArrowRight" && event.ctrlKey) {
+    if (event.code == "ArrowRight" && modifiers_pressed) {
         let nextBtn = gradioApp().getElementById(tabname + "_image_browser_next_page");
         nextBtn.dispatchEvent(new Event("click"));
     }

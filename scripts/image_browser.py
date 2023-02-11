@@ -642,6 +642,12 @@ def create_tab(tabname):
                         turn_page_switch = gr.Number(value=1, label="turn_page_switch")
                         img_path_add = gr.Textbox(value="add")
                         img_path_remove = gr.Textbox(value="remove")
+                        mod_keys = ""
+                        if opts.image_browser_mod_ctrl_shift:
+                            mod_keys = f"{mod_keys}CS"
+                        elif opts.image_browser_mod_shift:
+                            mod_keys = f"{mod_keys}S"
+                        image_browser_mod_keys = gr.Textbox(value=mod_keys, elem_id=f"{tabname}_image_browser_mod_keys")
 
     change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
     img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
@@ -798,6 +804,9 @@ def on_ui_settings():
     image_browser_options.append(("image_browser_logger_debug", False, "Print debug logs to the console", "images_logger_debug"))
     image_browser_options.append(("image_browser_delete_recycle", False, "Use recycle bin when deleting images", "images_delete_recycle"))
     image_browser_options.append(("image_browser_scan_exif", True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", "images_scan_exif"))
+    image_browser_options.append(("image_browser_mod_shift", False, "Change CTRL keybindings to SHIFT", None))
+    image_browser_options.append(("image_browser_mod_ctrl_shift", False, "or to CTRL+SHIFT", None))
+
     image_browser_options.append(("image_browser_page_columns", 6, "Number of columns on the page", "images_history_page_columns"))
     image_browser_options.append(("image_browser_page_rows", 6, "Number of rows on the page", "images_history_page_rows"))
     image_browser_options.append(("image_browser_pages_perload", 20, "Minimum number of pages per load", "images_history_pages_perload"))
@@ -806,7 +815,8 @@ def on_ui_settings():
     # Move historic setting names to current names
     added = 0
     for i in range(len(image_browser_options)):
-        added = move_setting(image_browser_options[i], section, added)
+        if image_browser_options[i][3] is not None:
+            added = move_setting(image_browser_options[i], section, added)
     if added > 0:
         shared.opts.save(shared.config_filename)
 

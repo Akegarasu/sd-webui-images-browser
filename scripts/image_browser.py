@@ -709,7 +709,7 @@ def create_tab(tabname):
     )
     img_path_remove_button.click(
         fn=img_path_add_remove, 
-        inputs=[img_path, path_recorder, img_path_remove], 
+        inputs=[img_path, path_recorder, img_path_remove, img_path_depth],
         outputs=[path_recorder, img_path_browser]
     )
 

@@ -220,8 +220,13 @@ gradioApp().addEventListener("keydown", function(event) {
     }
 
     // If the user is typing in an input field, dont listen for keypresses
-    let target = event.originalTarget || event.explicitOriginalTarget;
-    if (target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
+    let target;
+    if (!event.composed) { // We shouldn't get here as the Shadow DOM is always active, but just in case
+        target = event.target;
+    } else {
+        target = event.composedPath()[0];
+    }
+    if (!target || target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
       return;
     }
 

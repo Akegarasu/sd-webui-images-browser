@@ -72,11 +72,13 @@ function image_browser_set_image_info(button){
     
 }
 
-function image_browser_get_current_img(tabname, img_index, page_index){
+function image_browser_get_current_img(tabname, img_index, page_index, filenames, turn_page_switch){
     return [
         tabname, 
         gradioApp().getElementById(tabname + '_image_browser_set_index').getAttribute("img_index"),       
-        page_index
+        page_index,
+		filenames,
+		turn_page_switch
     ];
 }
 

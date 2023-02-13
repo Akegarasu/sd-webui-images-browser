@@ -1,14 +1,16 @@
 import gradio as gr
-import json
 import logging
 import os
 import random
+import platform
 import re
 import shutil
 import stat
+import sys
 import time
 import modules.extras
 import modules.ui
+from modules import paths
 from modules import script_callbacks
 from modules import shared, scripts, images
 from modules.shared import opts, cmd_opts
@@ -41,6 +43,7 @@ down_symbol = '\U000025bc'  # ▼
 current_depth = 0
 init = True
 
+# Logging
 logger = logging.getLogger(__name__)
 logger_mode = logging.ERROR
 if hasattr(opts, "image_browser_logger_warning"):
@@ -53,6 +56,22 @@ logger.setLevel(logger_mode)
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logger_mode)
 logger.addHandler(console_handler)
+# Debug logging
+if logger.isEnabledFor(logging.DEBUG):
+    logger.debug(f"{sys.executable} {sys.version}")
+    logger.debug(f"{platform.system()} {platform.version()}")
+    try:
+        git = os.environ.get('GIT', "git")
+        commit_hash = os.popen(f"{git} rev-parse HEAD").read()
+    except Exception as e:
+        commit_hash = e
+    logger.debug(f"{commit_hash}")
+    logger.debug(f"Gradio {gr.__version__}")
+    logger.debug(f"{paths.script_path}")
+    with open(cmd_opts.ui_config_file, "r") as f:
+        logger.debug(f.read())
+    with open(cmd_opts.ui_settings_file, "r") as f:
+        logger.debug(f.read())
 
 def delete_recycle(filename):
     if opts.image_browser_delete_recycle:
@@ -468,16 +487,22 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info += "</div>"
     return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info
 
-
-
 def get_current_file(tabname_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
     return file
     
-def show_image_info(tabname_box, num, page_index, filenames):
-    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
-    tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-    return file, tm, num, file, ""
+def show_image_info(tabname_box, num, page_index, filenames, turn_page_switch):
+    logger.debug(f"tabname_box, num, page_index, len(filenames), num_of_imgs_per_page: {tabname_box}, {num}, {page_index}, {len(filenames)}, {num_of_imgs_per_page}")
+    if len(filenames) == 0:
+        # This should only happen if webui was stopped and started again and the user clicks on one of the still displayed images.
+        # The state with the filenames will be empty then. In that case we return None to prevent further errors and force a page refresh.
+        turn_page_switch = -turn_page_switch
+        file = None
+        tm =  None
+    else:
+        file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
+        tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
+    return file, tm, num, file, turn_page_switch
 
 def show_next_image_info(tabname_box, num, page_index, filenames, auto_next):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
@@ -714,7 +739,7 @@ def create_tab(tabname):
     )
 
     # other functions
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tabname_box, image_index, page_index, filenames], outputs=[img_file_name, img_file_time, image_index, hidden])
+    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tabname_box, image_index, page_index, filenames, turn_page_switch], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch])
     set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel, ranking])
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)

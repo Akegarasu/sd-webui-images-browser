@@ -22,8 +22,13 @@ from PIL.ExifTags import TAGS
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
 from pathlib import Path
-from send2trash import send2trash
 from typing import List, Tuple
+try:
+    from send2trash import send2trash
+    send2trash_installed = True
+except ImportError:
+    print("Image Browser: send2trash is not installed. recycle bin cannot be used.")
+    send2trash_installed = False
 
 yappi_do = False
 favorite_tab_name = "Favorites"
@@ -74,10 +79,11 @@ if logger.isEnabledFor(logging.DEBUG):
         logger.debug(f.read())
 
 def delete_recycle(filename):
-    if opts.image_browser_delete_recycle:
+    if opts.image_browser_delete_recycle and send2trash_installed:
         send2trash(filename)
     else:
-        os.remove(filename)
+        file = Path(filename)
+        file.unlink()
     return
 
 def img_path_subdirs_get(img_path):

@@ -281,6 +281,15 @@ gradioApp().addEventListener("keydown", function(event) {
         deleteBtn.dispatchEvent(new Event("click"));
     }
 
+    // prevent left arrow following delete, instead refresh page
+    if (event.code == "ArrowLeft" && !event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+        let deleteState = gradioApp().getElementById(tabname + "_image_browser_delete_state").getElementsByClassName('gr-check-radio gr-checkbox')[0];
+        if (deleteState.checked) {
+            let refreshBtn = gradioApp().getElementById(tabname + "_image_browser_renew_page");
+            refreshBtn.dispatchEvent(new Event("click"));
+        }
+    }
+
     if (event.code == "ArrowLeft" && modifiers_pressed) {
         let prevBtn = gradioApp().getElementById(tabname + "_image_browser_prev_page");
         prevBtn.dispatchEvent(new Event("click"));

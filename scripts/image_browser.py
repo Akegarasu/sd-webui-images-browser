@@ -45,6 +45,7 @@ none_select = "Nothing selected"
 refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
+rebuild_symbol = '\U0001f50e\U0001f4c2'  # 🔎📂
 current_depth = 0
 init = True
 copy_move = ["Move", "Copy"]
@@ -367,6 +368,24 @@ def cache_exif(fileinfos):
     cache_exif_end = time.time()
     logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
+def exif_rebuild(exif_rebuild_button):
+    global finfo_exif, exif_cache, finfo_aes, aes_cache
+    if opts.image_browser_scan_exif:
+        print("Rebuild start")
+        exif_dirs = wib_db.get_exif_dirs()
+        finfo_aes = {}
+        exif_cache = {}
+        finfo_exif = {}
+        aes_cache = {}
+        for key, value in exif_dirs.items():
+            if os.path.exists(key):
+                print(f"Rebuilding {key}")
+                fileinfos = traverse_all_files(key, [], "", 0)
+                cache_exif(fileinfos)
+        print("Rebuild end")
+
+    return exif_rebuild_button
+
 def atof(text):
     try:
         retval = float(text)
@@ -623,6 +642,12 @@ def create_tab(tabname, current_gr_tab):
             img_path_subdirs = gr.Dropdown(choices=[none_select], value=none_select, label="Sub directories", interactive=True, elem_id=f"{tabname}_img_path_subdirs")
         with gr.Column(scale=1):
             img_path_subdirs_button = gr.Button(value="Get sub directories")
+
+    with gr.Row(visible=custom_dir): 
+        with gr.Column(scale=10):
+            gr.Dropdown(visible=False)
+        with gr.Column(scale=1):
+            exif_rebuild_button = gr.Button(value=f"{rebuild_symbol} Rebuild exif cache")
         
     with gr.Row(visible=not custom_dir, elem_id=f"{tabname}_image_browser") as main_panel:
         with gr.Column():  
@@ -776,6 +801,11 @@ def create_tab(tabname, current_gr_tab):
         fn=img_path_add_remove, 
         inputs=[img_path, path_recorder, img_path_remove, img_path_depth],
         outputs=[path_recorder, img_path_browser]
+    )
+    exif_rebuild_button.click(
+        fn=exif_rebuild, 
+        inputs=[exif_rebuild_button],
+        outputs=[exif_rebuild_button]
     )
 
     # other functions

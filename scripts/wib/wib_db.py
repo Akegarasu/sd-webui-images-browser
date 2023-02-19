@@ -122,7 +122,11 @@ def update_exif_data(cursor, file, info):
             elif info_item.startswith(np):
                 negative_prompt = info_item.replace(np, "")
             else:
-                prompt = info_item
+                if prompt == "":
+                    prompt = info_item
+                else:
+                    # multiline prompts
+                    prompt = f"{prompt}\n{info_item}"
     if key_values != "":
         key_value_pairs = []
         key_value = ""
@@ -339,3 +343,20 @@ def load_aes_data(aes_cache):
         aes_cache[row[0]] = row[1]
 
     return aes_cache
+
+def get_exif_dirs():
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        SELECT file
+        FROM exif_data
+        ''')
+
+    rows = cursor.fetchall()
+
+    dirs = {}
+    for row in rows:
+        dir = os.path.dirname(row[0])
+        dirs[dir] = dir
+
+    return dirs

@@ -154,6 +154,10 @@ def totxt(file):
 
     return file_txt
 
+def tab_select(path_recorder):
+    path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder(path_recorder)
+    return path_recorder, gr.update(choices=path_recorder_unformatted)
+
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
         name, ext = os.path.splitext(basename)
@@ -557,7 +561,7 @@ def get_ranking(filename):
     ranking_value = wib_db.select_ranking(filename)
     return ranking_value
 
-def create_tab(tabname):
+def create_tab(tabname, current_gr_tab):
     global init, exif_cache, aes_cache
     custom_dir = False
     path_recorder = {}
@@ -792,6 +796,13 @@ def create_tab(tabname):
     except:
         pass
     
+    if not custom_dir:
+        current_gr_tab.select(
+            fn=tab_select, 
+            inputs=[path_recorder],
+            outputs=[path_recorder, to_dir_saved]
+            )
+    
 def run_pnginfo(image, image_path, image_file_name):
     if image is None:
         return '', '', ''
@@ -827,9 +838,9 @@ def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as image_browser:
         with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
             for tab in tabs_list:
-                with gr.Tab(tab, elem_id=f"{tab}_image_browser_container"):
+                with gr.Tab(tab, elem_id=f"{tab}_image_browser_container") as current_gr_tab:
                     with gr.Blocks(analytics_enabled=False) :
-                        create_tab(tab)
+                        create_tab(tab, current_gr_tab)
         gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)         
         gr.Textbox(",".join(tabs_list), elem_id="image_browser_tabnames_list", visible=False) 
     return (image_browser , "Image Browser", "image_browser"),

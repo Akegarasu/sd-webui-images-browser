@@ -32,7 +32,8 @@ except ImportError:
 
 yappi_do = False
 favorite_tab_name = "Favorites"
-tabs_list = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"] #txt2img-grids and img2img-grids added by HaylockGrant
+default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
+tabs_list = opts.image_browser_active_tabs.split(", ") if hasattr(opts, "image_browser_active_tabs") else default_tab_options
 num_of_imgs_per_page = 0
 loads_files_num = 0
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
@@ -50,6 +51,15 @@ current_depth = 0
 init = True
 copy_move = ["Move", "Copy"]
 copied_moved = ["Moved", "Copied"]
+
+path_maps = {
+    "txt2img": opts.outdir_txt2img_samples,
+    "img2img": opts.outdir_img2img_samples,
+    "txt2img-grids": opts.outdir_txt2img_grids,
+    "img2img-grids": opts.outdir_img2img_grids,
+    "Extras": opts.outdir_extras_samples,
+    favorite_tab_name: opts.outdir_save
+}
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -582,7 +592,8 @@ def get_ranking(filename):
 
 def create_tab(tabname, current_gr_tab):
     global init, exif_cache, aes_cache
-    custom_dir = False
+    dir_name = None
+    others_dir = False
     path_recorder = {}
     path_recorder_formatted = []
     path_recorder_unformatted = []
@@ -595,23 +606,16 @@ def create_tab(tabname, current_gr_tab):
     
     path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder(path_recorder)
 
-    if tabname == "txt2img":
-        dir_name = opts.outdir_txt2img_samples
-    elif tabname == "img2img":
-        dir_name = opts.outdir_img2img_samples
-    elif tabname == "txt2img-grids":    #added by HaylockGrant to add a new tab for grid images
-        dir_name = opts.outdir_txt2img_grids
-    elif tabname == "img2img-grids":    #added by HaylockGrant to add a new tab for grid images
-        dir_name = opts.outdir_img2img_grids
-    elif tabname == "Extras":
-        dir_name = opts.outdir_extras_samples
-    elif tabname == favorite_tab_name:
-        dir_name = opts.outdir_save
+    if tabname in path_maps:
+        dir_name = path_maps[tabname]
+    elif tabname == "Others":
+        others_dir = True
+    elif os.path.isdir(tabname):
+        dir_name = tabname
     else:
-        custom_dir = True
-        dir_name = None        
+        raise RuntimeError(f"Invalid tab name: {tabname}")
 
-    if not custom_dir:
+    if not others_dir:
         dir_name = str(Path(dir_name))
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
@@ -623,33 +627,33 @@ def create_tab(tabname, current_gr_tab):
         with gr.Column(scale=5, visible=(tabname==favorite_tab_name)):
             gr.HTML(f"<p>Favorites path from settings: {opts.outdir_save}")
 
-    with gr.Row(visible=custom_dir):                 
+    with gr.Row(visible=others_dir):
         with gr.Column(scale=10):
-            img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory", interactive=custom_dir)  
+            img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory", interactive=others_dir)
         with gr.Column(scale=1):
             img_path_depth = gr.Number(value="0", label="Sub directory depth")
         with gr.Column(scale=1):
             img_path_save_button = gr.Button(value="Add to / replace in saved directories")
 
-    with gr.Row(visible=custom_dir): 
+    with gr.Row(visible=others_dir):
         with gr.Column(scale=10):
             img_path_browser = gr.Dropdown(choices=path_recorder_formatted, label="Saved directories")
         with gr.Column(scale=1):
             img_path_remove_button = gr.Button(value="Remove from saved directories")
 
-    with gr.Row(visible=custom_dir): 
+    with gr.Row(visible=others_dir): 
         with gr.Column(scale=10):
             img_path_subdirs = gr.Dropdown(choices=[none_select], value=none_select, label="Sub directories", interactive=True, elem_id=f"{tabname}_img_path_subdirs")
         with gr.Column(scale=1):
             img_path_subdirs_button = gr.Button(value="Get sub directories")
 
-    with gr.Row(visible=custom_dir): 
+    with gr.Row(visible=others_dir): 
         with gr.Column(scale=10):
             gr.Dropdown(visible=False)
         with gr.Column(scale=1):
             exif_rebuild_button = gr.Button(value=f"{rebuild_symbol} Rebuild exif cache")
         
-    with gr.Row(visible=not custom_dir, elem_id=f"{tabname}_image_browser") as main_panel:
+    with gr.Row(visible=not others_dir, elem_id=f"{tabname}_image_browser") as main_panel:
         with gr.Column():  
             with gr.Row():    
                 with gr.Column(scale=2):    
@@ -826,7 +830,7 @@ def create_tab(tabname, current_gr_tab):
     except:
         pass
     
-    if not custom_dir:
+    if not others_dir:
         current_gr_tab.select(
             fn=tab_select, 
             inputs=[path_recorder],
@@ -868,11 +872,12 @@ def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as image_browser:
         with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
             for tab in tabs_list:
-                with gr.Tab(tab, elem_id=f"{tab}_image_browser_container") as current_gr_tab:
+                tab_name = os.path.basename(tab) if os.path.isdir(tab) else tab
+                with gr.Tab(tab_name, elem_id=f"{tab}_image_browser_container") as current_gr_tab:
                     with gr.Blocks(analytics_enabled=False) :
                         create_tab(tab, current_gr_tab)
-        gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)         
-        gr.Textbox(",".join(tabs_list), elem_id="image_browser_tabnames_list", visible=False) 
+        gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
+        gr.Textbox(",".join(tabs_list), elem_id="image_browser_tabnames_list", visible=False)
     return (image_browser , "Image Browser", "image_browser"),
 
 def move_setting(options, section, added):
@@ -897,6 +902,8 @@ def move_setting(options, section, added):
 def on_ui_settings():
     image_browser_options = []
     # [current setting_name], [default], [label], [old setting_name]
+    active_tabs_description = f"List of active tabs. Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
+    image_browser_options.append(("image_browser_active_tabs", ", ".join(default_tab_options), active_tabs_description, None))
     image_browser_options.append(("image_browser_with_subdirs", True, "Include images in sub directories", "images_history_with_subdirs"))
     image_browser_options.append(("image_browser_preload", False, "Preload images at startup", "images_history_preload"))
     image_browser_options.append(("image_browser_copy_image", False, "Move buttons copy instead of move", "images_copy_image"))

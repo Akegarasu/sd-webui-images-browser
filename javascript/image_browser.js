@@ -1,32 +1,26 @@
-var image_browser_click_image = function(){
-    if (!this.classList?.contains("transform")){        
-        var gallery = image_browser_get_parent_by_class(this, "image_browser_container");
-        var buttons = gallery.querySelectorAll(".gallery-item");
-        var i = 0;
-        var hidden_list = [];
-        buttons.forEach(function(e){
-            if (e.style.display == "none"){
-                hidden_list.push(i);
-            }
-            i += 1;
-        })
-        if (hidden_list.length > 0){
-            setTimeout(image_browser_hide_buttons, 10, hidden_list, gallery);
-        }        
-    }    
-    image_browser_set_image_info(this); 
+const image_browser_click_image = function() {
+    if (!this.classList?.contains("transform")) {
+        const gallery = image_browser_get_parent_by_class(this, "image_browser_container");
+        const gallery_items = Array.from(gallery.querySelectorAll(".gallery-item"));
+        // List of gallery item indices that are currently hidden in the image browser.
+        const hidden_indices_list = gallery_items.filter(elem => elem.style.display === 'none').map(elem => gallery_items.indexOf(elem));
+        if (hidden_indices_list.length > 0) {
+            setTimeout(image_browser_hide_gallery_items, 10, hidden_indices_list, gallery);
+        }
+    }
+    image_browser_set_image_info(this);
 }
 
-function image_browser_get_parent_by_class(item, class_name){
-    var parent = item.parentElement;
+function image_browser_get_parent_by_class(item, class_name) {
+    let parent = item.parentElement;
     while(!parent.classList.contains(class_name)){
         parent = parent.parentElement;
     }
     return parent;  
 }
 
-function image_browser_get_parent_by_tagname(item, tagname){
-    var parent = item.parentElement;
+function image_browser_get_parent_by_tagname(item, tagname) {
+    let parent = item.parentElement;
     tagname = tagname.toUpperCase()
     while(parent.tagName != tagname){
         parent = parent.parentElement;
@@ -34,148 +28,121 @@ function image_browser_get_parent_by_tagname(item, tagname){
     return parent;
 }
 
-function image_browser_hide_buttons(hidden_list, gallery){
-    var buttons = gallery.querySelectorAll(".gallery-item");
-    var num = 0;
-    buttons.forEach(function(e){
-        if (e.style.display == "none"){
-            num += 1;
-        }
-    });
-    if (num == hidden_list.length){
-        setTimeout(image_browser_hide_buttons, 10, hidden_list, gallery);
-    } 
-    for( i in hidden_list){
-        buttons[hidden_list[i]].style.display = "none";
-    }    
+function image_browser_hide_gallery_items(hidden_indices_list, gallery) {
+    const gallery_items = gallery.querySelectorAll(".gallery-item");
+    // The number of gallery items that are currently hidden in the image browser.
+    const num = Array.from(gallery_items).filter(elem => elem.style.display === 'none').length;
+    if (num == hidden_indices_list.length) {
+        setTimeout(image_browser_hide_gallery_items, 10, hidden_indices_list, gallery);
+    }
+    hidden_indices_list.forEach(i => gallery_items[i].style.display = 'none');
 }
 
-function image_browser_set_image_info(button){
-    var buttons = image_browser_get_parent_by_tagname(button, "DIV").querySelectorAll(".gallery-item");
-    var index = -1;
-    var i = 0;
-    buttons.forEach(function(e){
-        if(e == button){
-            index = i;
-        }
-        if(e.style.display != "none"){
-            i += 1;
-        }        
-    });
-    var gallery = image_browser_get_parent_by_class(button, "image_browser_container");
-    var set_btn = gallery.querySelector(".image_browser_set_index");
-    var curr_idx = set_btn.getAttribute("img_index", index);  
+function image_browser_set_image_info(gallery_item) {
+    const gallery_items = image_browser_get_parent_by_tagname(gallery_item, "DIV").querySelectorAll(".gallery-item");
+    // Finds the index of the specified gallery item within the visible gallery items in the image browser.
+    const index = Array.from(gallery_items).filter(elem => elem.style.display !== 'none').indexOf(gallery_item);
+    const gallery = image_browser_get_parent_by_class(gallery_item, "image_browser_container");
+    const set_btn = gallery.querySelector(".image_browser_set_index");
+    const curr_idx = set_btn.getAttribute("img_index", index);
     if (curr_idx != index) {
-        set_btn.setAttribute("img_index", index);        
+        set_btn.setAttribute("img_index", index);
     }
     set_btn.click();
-    
 }
 
-function image_browser_get_current_img(tabname, img_index, page_index, filenames, turn_page_switch){
+function image_browser_get_current_img(tab_base_tag, img_index, page_index, filenames, turn_page_switch) {
     return [
-        tabname, 
-        gradioApp().getElementById(tabname + '_image_browser_set_index').getAttribute("img_index"),       
+        tab_base_tag,
+        gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').getAttribute("img_index"),
         page_index,
 		filenames,
 		turn_page_switch
     ];
 }
 
-function image_browser_delete(del_num, tabname, image_index){
+function image_browser_delete(del_num, tab_base_tag, image_index) {
     image_index = parseInt(image_index);
-    var tab = gradioApp().getElementById(tabname + '_image_browser');
-    var set_btn = tab.querySelector(".image_browser_set_index");
-    var buttons = [];
-    tab.querySelectorAll(".gallery-item").forEach(function(e){
-        if (e.style.display != 'none'){
-            buttons.push(e);
-        }
-    });    
-    var img_num = buttons.length / 2;
-    del_num = Math.min(img_num - image_index, del_num)    
-    if (img_num <= del_num){
-        setTimeout(function(tabname){
-            gradioApp().getElementById(tabname + '_image_browser_renew_page').click();
-        }, 30, tabname); 
+    const tab = gradioApp().getElementById(tab_base_tag + '_image_browser');
+    const set_btn = tab.querySelector(".image_browser_set_index");
+    const gallery_items = Array.from(tab.querySelectorAll('.gallery-item')).filter(item => item.style.display !== 'none');
+    const img_num = gallery_items.length / 2;
+    del_num = Math.min(img_num - image_index, del_num)
+    if (img_num <= del_num) {
+        // If all images are deleted, we reload the browser page.
+        setTimeout(function(tab_base_tag) {
+            gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click();
+        }, 30, tab_base_tag);
     } else {
-        var next_img  
-        for (var i = 0; i < del_num; i++){
-            buttons[image_index + i].style.display = 'none';
-            buttons[image_index + i + img_num].style.display = 'none';
-            next_img = image_index + i + 1
+        // After deletion of the image, we have to navigate to the next image (or wraparound).
+        for (let i = 0; i < del_num; i++) {
+            gallery_items[image_index + i].style.display = 'none';
+            gallery_items[image_index + i + img_num].style.display = 'none';
         }
-        var btn;
-        if (next_img  >= img_num){
-            btn = buttons[image_index - 1];
-        } else {            
-            btn = buttons[next_img];          
-        } 
+        const next_img = gallery_items.find((elem, i) => elem.style.display !== 'none' && i > image_index);
+        const btn = next_img || gallery_items[image_index - 1];
         setTimeout(function(btn){btn.click()}, 30, btn);
     }
 
 }
 
-function image_browser_turnpage(tabname){
-    var buttons = gradioApp().getElementById(tabname + '_image_browser').querySelectorAll(".gallery-item");
-    buttons.forEach(function(elem) {
+function image_browser_turnpage(tab_base_tag) {
+    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(".gallery-item");
+    gallery_items.forEach(function(elem) {
         elem.style.display = 'block';
-    });   
+    });
 }
 
-function image_browser_init(){ 
-    var tabnames = gradioApp().getElementById("image_browser_tabnames_list")   
-    if (tabnames){  
-        image_browser_tab_list = tabnames.querySelector("textarea").value.split(",")    
-        for (var i in image_browser_tab_list ){
-            var tab = image_browser_tab_list[i];
-            gradioApp().getElementById(tab + '_image_browser').classList.add("image_browser_container");
-            gradioApp().getElementById(tab + '_image_browser_set_index').classList.add("image_browser_set_index");
-            gradioApp().getElementById(tab + '_image_browser_del_img_btn').classList.add("image_browser_del_img_btn");
-            gradioApp().getElementById(tab + '_image_browser_gallery').classList.add("image_browser_gallery");  
-            }
+function image_browser_init() {
+    const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list");
+    if (tab_base_tags) {
+        image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",");
+        image_browser_tab_base_tags_list.forEach(function(tab_base_tag) {
+            gradioApp().getElementById(tab_base_tag + '_image_browser').classList.add("image_browser_container");
+            gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').classList.add("image_browser_set_index");
+            gradioApp().getElementById(tab_base_tag + '_image_browser_del_img_btn').classList.add("image_browser_del_img_btn");
+            gradioApp().getElementById(tab_base_tag + '_image_browser_gallery').classList.add("image_browser_gallery");
+        });
 
         //preload
-        var tab_btns = gradioApp().getElementById("image_browser_tabs_container").querySelector("div").querySelectorAll("button"); 
-        for (var i in image_browser_tab_list){               
-            var tabname = image_browser_tab_list[i]
-            tab_btns[i].setAttribute("tabname", tabname);
-            tab_btns[i].addEventListener('click', function(){
-                 var tabs_box = gradioApp().getElementById("image_browser_tabs_container");
-                    if (!tabs_box.classList.contains(this.getAttribute("tabname"))) {
-                        gradioApp().getElementById(this.getAttribute("tabname") + "_image_browser_renew_page").click();
-                        tabs_box.classList.add(this.getAttribute("tabname"))
-                    }         
+        const tab_btns = gradioApp().getElementById("image_browser_tabs_container").querySelector("div").querySelectorAll("button");
+        tab_btns.forEach(function(btn, i) {
+            const tab_base_tag = image_browser_tab_base_tags_list[i];
+            btn.setAttribute("tab_base_tag", tab_base_tag);
+            btn.addEventListener('click', function() {
+                const tabs_box = gradioApp().getElementById("image_browser_tabs_container");
+                if (!tabs_box.classList.contains(this.getAttribute("tab_base_tag"))) {
+                    gradioApp().getElementById(this.getAttribute("tab_base_tag") + "_image_browser_renew_page").click();
+                    tabs_box.classList.add(this.getAttribute("tab_base_tag"));
+                }
             });
-        }     
-        if (gradioApp().getElementById("image_browser_preload").querySelector("input").checked ){
+        });
+        if (gradioApp().getElementById("image_browser_preload").querySelector("input").checked) {
              setTimeout(function(){tab_btns[0].click()}, 100);
-        }   
-       
+        }
+
     } else {
         setTimeout(image_browser_init, 500);
-    } 
+    }
 }
 
-let timer
-var image_browser_tab_list = "";
+let timer;
+let image_browser_tab_base_tags_list = "";
 setTimeout(image_browser_init, 500);
 document.addEventListener("DOMContentLoaded", function() {
-    var mutationObserver = new MutationObserver(function(m){
-        if (image_browser_tab_list != ""){
-
-            for (var i in image_browser_tab_list ){
-                let tabname = image_browser_tab_list[i]
-                var buttons = gradioApp().querySelectorAll('#' + tabname + '_image_browser .gallery-item');
-                buttons.forEach(function(button){    
-                    button.addEventListener('click', image_browser_click_image, true);
+    const mutationObserver = new MutationObserver(function(m) {
+        if (image_browser_tab_base_tags_list != "") {
+            image_browser_tab_base_tags_list.forEach(function(tab_base_tag) {
+                const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser .gallery-item');
+                tab_gallery_items.forEach(function(gallery_item) {
+                    gallery_item.addEventListener('click', image_browser_click_image, true);
                     document.onkeyup = function(e) {
                         if (!image_browser_active()) {
                             return;
                         }
                         clearTimeout(timer)
                         timer = setTimeout(() => {
-                            var gallery_btn = gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg');
+                            let gallery_btn = gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg');
                             gallery_btn = gallery_btn && gallery_btn.length > 0 ? gallery_btn[0] : null;
                             if (gallery_btn) {
                                 image_browser_click_image.call(gallery_btn)
@@ -184,34 +151,33 @@ document.addEventListener("DOMContentLoaded", function() {
                     }
                 });
 
-                var cls_btn = gradioApp().getElementById(tabname + '_image_browser_gallery').querySelector("svg");
-                if (cls_btn){
-                    cls_btn.addEventListener('click', function(){
-                        gradioApp().getElementById(tabname + '_image_browser_renew_page').click();
+                const cls_btn = gradioApp().getElementById(tab_base_tag + '_image_browser_gallery').querySelector("svg");
+                if (cls_btn) {
+                    cls_btn.addEventListener('click', function() {
+                        gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click();
                     }, false);
                 }
-
-            }     
+            });
         }
     });
     mutationObserver.observe(gradioApp(), { childList:true, subtree:true });
 });
 
 function image_browser_current_tab() {
-    let tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]');
+    const tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]');
 
     for (const element of tabs) {
       if (element.style.display === "block") {
         const id = element.id;
         const index = id.indexOf("_image_browser_container");
-        const tabname = id.substring(0, index);
-        return tabname;
+        const tab_base_tag = id.substring(0, index);
+        return tab_base_tag;
       }
     }
 }
 
 function image_browser_active() {
-    let ext_active = gradioApp().getElementById("tab_image_browser");
+    const ext_active = gradioApp().getElementById("tab_image_browser");
     return ext_active && ext_active.style.display !== "none";
 }
 
@@ -232,12 +198,12 @@ gradioApp().addEventListener("keydown", function(event) {
       return;
     }
 
-    let tabname = image_browser_current_tab();
+    const tab_base_tag = image_browser_current_tab();
 
     // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)
     if (event.code >= "Digit0" && event.code <= "Digit5") {
-        let selectedValue = event.code.charAt(event.code.length - 1);
-        let radioInputs = gradioApp().getElementById(tabname + "_image_browser_ranking").getElementsByTagName("input");
+        const selectedValue = event.code.charAt(event.code.length - 1);
+        const radioInputs = gradioApp().getElementById(tab_base_tag + "_image_browser_ranking").getElementsByTagName("input");
         for (const input of radioInputs) {
             if (input.value === selectedValue || (selectedValue === '0' && input === radioInputs[radioInputs.length - 1])) {
                 input.checked = true;
@@ -247,7 +213,7 @@ gradioApp().addEventListener("keydown", function(event) {
         }
     }
 
-    let mod_keys = gradioApp().querySelector(`#${tabname}_image_browser_mod_keys textarea`).value;
+    const mod_keys = gradioApp().querySelector(`#${tab_base_tag}_image_browser_mod_keys textarea`).value;
     let modifiers_pressed = false;
     if (mod_keys.indexOf("C") !== -1 && mod_keys.indexOf("S") !== -1) {
         if (event.ctrlKey && event.shiftKey) {
@@ -264,39 +230,39 @@ gradioApp().addEventListener("keydown", function(event) {
     }
 
     if (event.code == "KeyF") {
-        if (tabname == "Favorites") {
+        if (tab_base_tag == "Favorites") {
             return;
         }
-        let favoriteBtn = gradioApp().getElementById(tabname + "_image_browser_favorites_btn");
+        const favoriteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_favorites_btn");
         favoriteBtn.dispatchEvent(new Event("click"));
     }
 
     if (event.code == "KeyR") {
-        let refreshBtn = gradioApp().getElementById(tabname + "_image_browser_renew_page");
+        const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page");
         refreshBtn.dispatchEvent(new Event("click"));
     }
 
     if (event.code == "Delete") {
-        let deleteBtn = gradioApp().getElementById(tabname + "_image_browser_del_img_btn");
+        const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn");
         deleteBtn.dispatchEvent(new Event("click"));
     }
 
     // prevent left arrow following delete, instead refresh page
     if (event.code == "ArrowLeft" && !event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
-        let deleteState = gradioApp().getElementById(tabname + "_image_browser_delete_state").getElementsByClassName('gr-check-radio gr-checkbox')[0];
+        const deleteState = gradioApp().getElementById(tab_base_tag + "_image_browser_delete_state").getElementsByClassName('gr-check-radio gr-checkbox')[0];
         if (deleteState.checked) {
-            let refreshBtn = gradioApp().getElementById(tabname + "_image_browser_renew_page");
+            const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page");
             refreshBtn.dispatchEvent(new Event("click"));
         }
     }
 
     if (event.code == "ArrowLeft" && modifiers_pressed) {
-        let prevBtn = gradioApp().getElementById(tabname + "_image_browser_prev_page");
+        const prevBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_prev_page");
         prevBtn.dispatchEvent(new Event("click"));
     }
-    
+
     if (event.code == "ArrowRight" && modifiers_pressed) {
-        let nextBtn = gradioApp().getElementById(tabname + "_image_browser_next_page");
+        const nextBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_next_page");
         nextBtn.dispatchEvent(new Event("click"));
     }
 });

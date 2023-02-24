@@ -1,4 +1,5 @@
 import gradio as gr
+import csv
 import logging
 import os
 import random
@@ -23,6 +24,9 @@ from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
 from pathlib import Path
 from typing import List, Tuple
+from itertools import chain
+from io import StringIO
+
 try:
     from send2trash import send2trash
     send2trash_installed = True
@@ -33,7 +37,7 @@ except ImportError:
 yappi_do = False
 favorite_tab_name = "Favorites"
 default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
-tabs_list = opts.image_browser_active_tabs.split(", ") if hasattr(opts, "image_browser_active_tabs") else default_tab_options
+tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
 num_of_imgs_per_page = 0
 loads_files_num = 0
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
@@ -902,7 +906,7 @@ def move_setting(options, section, added):
 def on_ui_settings():
     image_browser_options = []
     # [current setting_name], [default], [label], [old setting_name]
-    active_tabs_description = f"List of active tabs. Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
+    active_tabs_description = f"List of active tabs (seperated by commas). Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
     image_browser_options.append(("image_browser_active_tabs", ", ".join(default_tab_options), active_tabs_description, None))
     image_browser_options.append(("image_browser_with_subdirs", True, "Include images in sub directories", "images_history_with_subdirs"))
     image_browser_options.append(("image_browser_preload", False, "Preload images at startup", "images_history_preload"))

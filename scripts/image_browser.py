@@ -67,15 +67,30 @@ path_maps = {
 
 class ImageBrowserTab():
 
-    def __init__(self, name) -> None:
-        self.name = os.path.basename(name) if os.path.isdir(name) else name
-        self.path = path_maps.get(name, name)
-        self.base_tag = self.remove_invalid_html_tag_chars(self.name).lower()
-    
-    def remove_invalid_html_tag_chars(self, html_str):
+    seen_base_tags = set()
+
+    def __init__(self, name: str):
+        self.name: str = os.path.basename(name) if os.path.isdir(name) else name
+        self.path: str = path_maps.get(name, name)
+        self.base_tag: str = f"image_browser_tab_{self.get_unique_base_tag(self.remove_invalid_html_tag_chars(self.name).lower())}"
+
+    def remove_invalid_html_tag_chars(self, html_str: str) -> str:
         # Matches anything that is not a word group, or not a special character allowed in a HTML tag 
         pattern = re.compile(r'[^\w!#$%&()*+,-./:;<=>?@[\]^_`{|}~]')
         return re.sub(pattern, '', html_str)
+
+    def get_unique_base_tag(self, base_tag: str) -> str:
+        counter = 1
+        while base_tag in self.seen_base_tags:
+            match = re.search(r'_(\d+)$', base_tag)
+            if match:
+                counter = int(match.group(1)) + 1
+                base_tag = re.sub(r'_(\d+)$', f"_{counter}", base_tag)
+            else:
+                base_tag = f"{base_tag}_{counter}"
+            counter += 1
+        self.seen_base_tags.add(base_tag)
+        return base_tag
 
 tabs_list = [ImageBrowserTab(tab) for tab in tabs_list]
 

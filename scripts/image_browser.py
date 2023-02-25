@@ -74,10 +74,10 @@ class ImageBrowserTab():
         self.path: str = path_maps.get(name, name)
         self.base_tag: str = f"image_browser_tab_{self.get_unique_base_tag(self.remove_invalid_html_tag_chars(self.name).lower())}"
 
-    def remove_invalid_html_tag_chars(self, html_str: str) -> str:
-        # Matches anything that is not a word group, or not a special character allowed in a HTML tag 
-        pattern = re.compile(r'[^\w!#$%&()*+,-./:;<=>?@[\]^_`{|}~]')
-        return re.sub(pattern, '', html_str)
+    def remove_invalid_html_tag_chars(self, tag: str) -> str:
+        # Matches any character that is not a letter, a digit, a hyphen, or an underscore
+        pattern = re.compile(r'[^a-zA-Z0-9\-_]')
+        return re.sub(pattern, '', tag)
 
     def get_unique_base_tag(self, base_tag: str) -> str:
         counter = 1

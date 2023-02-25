@@ -930,7 +930,7 @@ def move_setting(options, section, added):
 def on_ui_settings():
     image_browser_options = []
     # [current setting_name], [default], [label], [old setting_name]
-    active_tabs_description = f"List of active tabs (seperated by commas). Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
+    active_tabs_description = f"List of active tabs (separated by commas). Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
     image_browser_options.append(("image_browser_active_tabs", ", ".join(default_tab_options), active_tabs_description, None))
     image_browser_options.append(("image_browser_with_subdirs", True, "Include images in sub directories", "images_history_with_subdirs"))
     image_browser_options.append(("image_browser_preload", False, "Preload images at startup", "images_history_preload"))

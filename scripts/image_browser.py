@@ -57,11 +57,11 @@ copy_move = ["Move", "Copy"]
 copied_moved = ["Moved", "Copied"]
 
 path_maps = {
-    "txt2img": opts.outdir_txt2img_samples,
-    "img2img": opts.outdir_img2img_samples,
-    "txt2img-grids": opts.outdir_txt2img_grids,
-    "img2img-grids": opts.outdir_img2img_grids,
-    "Extras": opts.outdir_extras_samples,
+    "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
+    "img2img": opts.outdir_samples or opts.outdir_img2img_samples,
+    "txt2img-grids": opts.outdir_grids or opts.outdir_txt2img_grids,
+    "img2img-grids": opts.outdir_grids or opts.outdir_img2img_grids,
+    "Extras": opts.outdir_samples or opts.outdir_extras_samples,
     favorite_tab_name: opts.outdir_save
 }
 

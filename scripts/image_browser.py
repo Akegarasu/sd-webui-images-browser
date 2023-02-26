@@ -92,6 +92,9 @@ class ImageBrowserTab():
         self.seen_base_tags.add(base_tag)
         return base_tag
 
+    def __str__(self):
+        return f"Name: {self.name} / Path: {self.path} / Base tag: {self.base_tag} / Seen base tags: {self.seen_base_tags}"
+
 tabs_list = [ImageBrowserTab(tab) for tab in tabs_list]
 
 # Logging
@@ -123,6 +126,8 @@ if logger.isEnabledFor(logging.DEBUG):
         logger.debug(f.read())
     with open(cmd_opts.ui_settings_file, "r") as f:
         logger.debug(f.read())
+    logger.debug(os.path.realpath(__file__))
+    logger.debug([str(tab) for tab in tabs_list])
 
 def delete_recycle(filename):
     if opts.image_browser_delete_recycle and send2trash_installed:
@@ -293,6 +298,7 @@ def delete_image(delete_num, name, filenames, image_index, visible_num):
 
 def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) -> List[Tuple[str, os.stat_result, str, int]]:
     global current_depth
+    logger.debug(f"curr_path: {curr_path}")
     if curr_path == "":
         return image_list
     f_list = [(os.path.join(curr_path, entry.name), entry.stat()) for entry in os.scandir(curr_path)]

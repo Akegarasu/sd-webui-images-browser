@@ -2,8 +2,8 @@ import gradio as gr
 import csv
 import logging
 import os
-import random
 import platform
+import random
 import re
 import shutil
 import stat
@@ -38,10 +38,15 @@ yappi_do = False
 favorite_tab_name = "Favorites"
 default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
 tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
+try:
+    if opts.image_browser_enable_maint:
+        tabs_list.append("Maintenance")  # mandatory tab
+except AttributeError:
+    tabs_list.append("Maintenance")  # mandatory tab
+
 num_of_imgs_per_page = 0
 loads_files_num = 0
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
-cur_ranking_value="0"
 finfo_aes = {}
 exif_cache = {}
 finfo_exif = {}
@@ -50,7 +55,7 @@ none_select = "Nothing selected"
 refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
-rebuild_symbol = '\U0001f50e\U0001f4c2'  # 🔎📂
+caution_symbol = '\U000026a0'  # ⚠
 current_depth = 0
 init = True
 copy_move = ["Move", "Copy"]
@@ -71,13 +76,13 @@ class ImageBrowserTab():
 
     def __init__(self, name: str):
         self.name: str = os.path.basename(name) if os.path.isdir(name) else name
-        self.path: str = path_maps.get(name, name)
+        self.path: str = os.path.abspath(path_maps.get(name, name))
         self.base_tag: str = f"image_browser_tab_{self.get_unique_base_tag(self.remove_invalid_html_tag_chars(self.name).lower())}"
 
     def remove_invalid_html_tag_chars(self, tag: str) -> str:
-        # Matches any character that is not a letter, a digit, a hyphen, or an underscore
-        pattern = re.compile(r'[^a-zA-Z0-9\-_]')
-        return re.sub(pattern, '', tag)
+        # Removes any character that is not a letter, a digit, a hyphen, or an underscore
+        removed = re.sub(r'[^a-zA-Z0-9\-_]', '', tag)
+        return removed
 
     def get_unique_base_tag(self, base_tag: str) -> str:
         counter = 1
@@ -147,6 +152,7 @@ def img_path_subdirs_get(img_path):
     return gr.update(choices=subdirs)
 
 def img_path_add_remove(img_dir, path_recorder, add_remove, img_path_depth):
+    img_dir = os.path.abspath(img_dir)    
     if add_remove == "add" or (add_remove == "remove" and img_dir in path_recorder):
         if add_remove == "add":
             path_recorder[img_dir] = {
@@ -173,7 +179,7 @@ def sort_order_flip(turn_page_switch, sort_order):
         sort_order = up_symbol
     return 1, -turn_page_switch, sort_order
 
-def read_path_recorder(path_recorder):
+def read_path_recorder():
     path_recorder = wib_db.load_path_recorder()
     path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
     path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: natural_keys(x.lower()))
@@ -191,6 +197,7 @@ def pure_path(path):
         depth = int(match.group(1))
     else:
         depth = 0
+    path = os.path.abspath(path)
     return path, depth
 
 def browser2path(img_path_browser):
@@ -203,8 +210,8 @@ def totxt(file):
 
     return file_txt
 
-def tab_select(path_recorder):
-    path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder(path_recorder)
+def tab_select():
+    path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
     return path_recorder, gr.update(choices=path_recorder_unformatted)
 
 def reduplicative_file_move(src, dst):
@@ -417,10 +424,10 @@ def cache_exif(fileinfos):
     cache_exif_end = time.time()
     logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
-def exif_rebuild(exif_rebuild_button):
+def exif_rebuild(maint_wait):
     global finfo_exif, exif_cache, finfo_aes, aes_cache
     if opts.image_browser_scan_exif:
-        print("Rebuild start")
+        logger.debug("Rebuild start")
         exif_dirs = wib_db.get_exif_dirs()
         finfo_aes = {}
         exif_cache = {}
@@ -431,9 +438,37 @@ def exif_rebuild(exif_rebuild_button):
                 print(f"Rebuilding {key}")
                 fileinfos = traverse_all_files(key, [], "", 0)
                 cache_exif(fileinfos)
-        print("Rebuild end")
+        logger.debug("Rebuild end")
+        maint_last_msg = "Rebuild finished"
+    else:
+        maint_last_msg = "Exif cache not enabled in settings"
 
-    return exif_rebuild_button
+    return maint_wait, maint_last_msg
+
+def exif_update_dirs(maint_update_dirs_from, maint_update_dirs_to, maint_wait):
+    global exif_cache, aes_cache
+    if maint_update_dirs_from == "":
+        maint_last_msg = "From is empty"
+    elif maint_update_dirs_to == "":
+        maint_last_msg = "To is empty"
+    else:
+        maint_update_dirs_from = os.path.abspath(maint_update_dirs_from)
+        maint_update_dirs_to = os.path.abspath(maint_update_dirs_to)
+        rows = 0
+        conn, cursor = wib_db.transaction_begin()
+        wib_db.update_path_recorder_mult(cursor, maint_update_dirs_from, maint_update_dirs_to)
+        rows = rows + cursor.rowcount
+        wib_db.update_exif_data_mult(cursor, maint_update_dirs_from, maint_update_dirs_to)
+        rows = rows + cursor.rowcount
+        wib_db.update_ranking_mult(cursor, maint_update_dirs_from, maint_update_dirs_to)
+        rows = rows + cursor.rowcount
+        wib_db.transaction_end(conn, cursor)
+        if rows == 0:
+            maint_last_msg = "No rows updated"
+        else:
+            maint_last_msg = f"{rows} rows updated. Please reload UI!"
+
+    return maint_wait, maint_last_msg
 
 def atof(text):
     try:
@@ -633,24 +668,31 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     global init, exif_cache, aes_cache
     dir_name = None
     others_dir = False
+    maint = False
+    standard_ui = True
     path_recorder = {}
     path_recorder_formatted = []
     path_recorder_unformatted = []
     
     if init:
-        wib_db.check()
+        db_version = wib_db.check()
+        logger.debug(f"db_version: {db_version}")
         exif_cache = wib_db.load_exif_data(exif_cache)
         aes_cache = wib_db.load_aes_data(aes_cache)
         init = False
     
-    path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder(path_recorder)
+    path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
 
     if tab.name == "Others":
         others_dir = True
+        standard_ui = False
+    elif tab.name == "Maintenance":
+        maint = True
+        standard_ui = False
     else:
         dir_name = tab.path
 
-    if not others_dir:
+    if standard_ui:
         dir_name = str(Path(dir_name))
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
@@ -681,14 +723,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             img_path_subdirs = gr.Dropdown(choices=[none_select], value=none_select, label="Sub directories", interactive=True, elem_id=f"{tab.base_tag}_img_path_subdirs")
         with gr.Column(scale=1):
             img_path_subdirs_button = gr.Button(value="Get sub directories")
-
-    with gr.Row(visible=others_dir): 
-        with gr.Column(scale=10):
-            gr.Dropdown(visible=False)
-        with gr.Column(scale=1):
-            exif_rebuild_button = gr.Button(value=f"{rebuild_symbol} Rebuild exif cache")
-        
-    with gr.Row(visible=not others_dir, elem_id=f"{tab.base_tag}_image_browser") as main_panel:
+    
+    with gr.Row(visible=standard_ui, elem_id=f"{tab.base_tag}_image_browser") as main_panel:
         with gr.Column():  
             with gr.Row():    
                 with gr.Column(scale=2):    
@@ -774,6 +810,34 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                             mod_keys = f"{mod_keys}S"
                         image_browser_mod_keys = gr.Textbox(value=mod_keys, elem_id=f"{tab.base_tag}_image_browser_mod_keys")
 
+    # Maintenance tab
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=4):
+            gr.HTML(f"{caution_symbol} Caution: You should only use these options if you know what you are doing. {caution_symbol}")
+        with gr.Column(scale=3):
+            maint_wait = gr.HTML("Status:")
+        with gr.Column(scale=7):
+            gr.HTML("&nbsp")
+    with gr.Row(visible=maint): 
+        maint_last_msg = gr.Textbox(label="Last message", interactive=False)
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=1):
+            maint_rebuild = gr.Button(value="Rebuild exif cache")
+        with gr.Column(scale=10):
+            gr.HTML(visible=False)
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=1):
+            maint_update_dirs = gr.Button(value="Update directory names in database")
+        with gr.Column(scale=10):
+            maint_update_dirs_from = gr.Textbox(label="From (full path)")
+        with gr.Column(scale=10):
+            maint_update_dirs_to = gr.Textbox(label="to (full path)")
+    with gr.Row(visible=False): 
+        with gr.Column(scale=1):
+            maint_rebuild_ranking = gr.Button(value="Rebuild ranking from exif info")
+        with gr.Column(scale=10):
+            gr.HTML(visible=False)
+
     change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
     img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
     img_path_browser.change(change_dir, inputs=[img_path_browser, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
@@ -841,10 +905,17 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         inputs=[img_path, path_recorder, img_path_remove, img_path_depth],
         outputs=[path_recorder, img_path_browser]
     )
-    exif_rebuild_button.click(
-        fn=exif_rebuild, 
-        inputs=[exif_rebuild_button],
-        outputs=[exif_rebuild_button]
+    maint_rebuild.click(
+        fn=exif_rebuild,
+        show_progress=True,
+        inputs=[maint_wait],
+        outputs=[maint_wait, maint_last_msg]
+    )
+    maint_update_dirs.click(
+        fn=exif_update_dirs,
+        show_progress=True,
+        inputs=[maint_update_dirs_from, maint_update_dirs_to, maint_wait],
+        outputs=[maint_wait, maint_last_msg]
     )
 
     # other functions
@@ -865,10 +936,10 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     except:
         pass
     
-    if not others_dir:
+    if standard_ui:
         current_gr_tab.select(
             fn=tab_select, 
-            inputs=[path_recorder],
+            inputs=[],
             outputs=[path_recorder, to_dir_saved]
             )
     
@@ -949,6 +1020,8 @@ def on_ui_settings():
     image_browser_options.append(("image_browser_scan_exif", True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", "images_scan_exif"))
     image_browser_options.append(("image_browser_mod_shift", False, "Change CTRL keybindings to SHIFT", None))
     image_browser_options.append(("image_browser_mod_ctrl_shift", False, "or to CTRL+SHIFT", None))
+    #image_browser_options.append(("image_browser_ranking_pnginfo", False, "Save ranking in image's pnginfo", None))
+    image_browser_options.append(("image_browser_enable_maint", True, "Enable Maintenance tab", None))
 
     image_browser_options.append(("image_browser_page_columns", 6, "Number of columns on the page", "images_history_page_columns"))
     image_browser_options.append(("image_browser_page_rows", 6, "Number of rows on the page", "images_history_page_rows"))

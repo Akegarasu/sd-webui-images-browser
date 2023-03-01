@@ -76,7 +76,7 @@ class ImageBrowserTab():
 
     def __init__(self, name: str):
         self.name: str = os.path.basename(name) if os.path.isdir(name) else name
-        self.path: str = os.path.abspath(path_maps.get(name, name))
+        self.path: str = os.path.realpath(path_maps.get(name, name))
         self.base_tag: str = f"image_browser_tab_{self.get_unique_base_tag(self.remove_invalid_html_tag_chars(self.name).lower())}"
 
     def remove_invalid_html_tag_chars(self, tag: str) -> str:
@@ -112,6 +112,8 @@ if hasattr(opts, "image_browser_logger_debug"):
     if opts.image_browser_logger_debug:
         logger_mode = logging.DEBUG
 logger.setLevel(logger_mode)
+if (logger.hasHandlers()):
+    logger.handlers.clear()
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logger_mode)
 logger.addHandler(console_handler)
@@ -152,7 +154,7 @@ def img_path_subdirs_get(img_path):
     return gr.update(choices=subdirs)
 
 def img_path_add_remove(img_dir, path_recorder, add_remove, img_path_depth):
-    img_dir = os.path.abspath(img_dir)    
+    img_dir = os.path.realpath(img_dir)    
     if add_remove == "add" or (add_remove == "remove" and img_dir in path_recorder):
         if add_remove == "add":
             path_recorder[img_dir] = {
@@ -197,7 +199,7 @@ def pure_path(path):
         depth = int(match.group(1))
     else:
         depth = 0
-    path = os.path.abspath(path)
+    path = os.path.realpath(path)
     return path, depth
 
 def browser2path(img_path_browser):
@@ -452,8 +454,8 @@ def exif_update_dirs(maint_update_dirs_from, maint_update_dirs_to, maint_wait):
     elif maint_update_dirs_to == "":
         maint_last_msg = "To is empty"
     else:
-        maint_update_dirs_from = os.path.abspath(maint_update_dirs_from)
-        maint_update_dirs_to = os.path.abspath(maint_update_dirs_to)
+        maint_update_dirs_from = os.path.realpath(maint_update_dirs_from)
+        maint_update_dirs_to = os.path.realpath(maint_update_dirs_to)
         rows = 0
         conn, cursor = wib_db.transaction_begin()
         wib_db.update_path_recorder_mult(cursor, maint_update_dirs_from, maint_update_dirs_to)

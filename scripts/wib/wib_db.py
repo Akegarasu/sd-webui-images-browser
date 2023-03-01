@@ -3,7 +3,7 @@ import os
 import sqlite3
 from modules import scripts
 
-version = 2
+version = 3
 
 path_recorder_file = os.path.join(scripts.basedir(), "path_recorder.txt")
 aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
@@ -95,7 +95,7 @@ def migrate_path_recorder(cursor):
                 # json-version
                 path_recorder = json.load(f)
             for path, values in path_recorder.items():
-                path = os.path.abspath(path)
+                path = os.path.realpath(path)
                 depth = values["depth"]
                 path_display = f"{path} [{depth}]"
                 cursor.execute('''
@@ -107,7 +107,7 @@ def migrate_path_recorder(cursor):
                 # old txt-version
                 path = f.readline().rstrip("\n")
                 while len(path) > 0:
-                    path = os.path.abspath(path)
+                    path = os.path.realpath(path)
                     cursor.execute('''
                     INSERT INTO path_recorder (path, depth, path_display)
                     VALUES (?, ?, ?)
@@ -192,7 +192,7 @@ def migrate_exif_data(cursor):
             exif_cache = json.load(file)
         
         for file, info in exif_cache.items():
-            file = os.path.abspath(file)
+            file = os.path.realpath(file)
             update_exif_data(cursor, file, info)
     
     return
@@ -203,7 +203,7 @@ def migrate_ranking(cursor):
             ranking = json.load(file)
         for file, info in ranking.items():
             if info != "None":
-                file = os.path.abspath(file)
+                file = os.path.realpath(file)
                 name = os.path.basename(file)
                 cursor.execute('''
                 INSERT INTO ranking (file, name, ranking)
@@ -239,10 +239,10 @@ def migrate_path_recorder_dirs(cursor):
     FROM path_recorder
     ''')
     for (path, path_display) in cursor.fetchall():
-        abs_path = os.path.abspath(path)
-        if path != abs_path:
+        real_path = os.path.realpath(path)
+        if path != real_path:
             update_from = path
-            update_to = abs_path
+            update_to = real_path
             cursor.execute('''
             UPDATE path_recorder
             SET path = ?,
@@ -259,10 +259,10 @@ def migrate_exif_data_dirs(cursor):
     ''')
     for (filepath,) in cursor.fetchall():
         (path, file) = os.path.split(filepath)
-        abs_path = os.path.abspath(path)
-        if path != abs_path:
+        real_path = os.path.realpath(path)
+        if path != real_path:
             update_from = filepath
-            update_to = os.path.join(abs_path, file)
+            update_to = os.path.join(real_path, file)
             try:
                 cursor.execute('''
                 UPDATE exif_data
@@ -282,15 +282,16 @@ def migrate_exif_data_dirs(cursor):
 
     return
 
-def migrate_ranking_dirs(cursor):
-    cursor.execute('''
-    ALTER TABLE ranking
-    ADD COLUMN name TEXT
-    ''')
+def migrate_ranking_dirs(cursor, db_version):
+    if db_version == "1":
+        cursor.execute('''
+        ALTER TABLE ranking
+        ADD COLUMN name TEXT
+        ''')
 
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS ranking_name ON ranking (name)
-    ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS ranking_name ON ranking (name)
+        ''')
 
     cursor.execute('''
     SELECT file, ranking 
@@ -304,10 +305,10 @@ def migrate_ranking_dirs(cursor):
             ''', (filepath,))
         else:
             (path, file) = os.path.split(filepath)
-            abs_path = os.path.abspath(path)
+            real_path = os.path.realpath(path)
             name = file
             update_from = filepath
-            update_to = os.path.join(abs_path, file)
+            update_to = os.path.join(real_path, file)
             cursor.execute('''
             UPDATE ranking
             SET file = ?,
@@ -319,6 +320,7 @@ def migrate_ranking_dirs(cursor):
 
 def check():
     if not os.path.exists(db_file):
+        print("Image Browser: Creating database")
         conn, cursor = transaction_begin()
         create_db(cursor)
         update_db_data(cursor, "version", version)
@@ -326,15 +328,19 @@ def check():
         migrate_exif_data(cursor)
         migrate_ranking(cursor)
         transaction_end(conn, cursor)
+        print("Image Browser: Database created")
     db_version = get_version()
-    if db_version[0] == "1":
-        # version 1 database had mixed path notations, this will change them all to abspath
+    if db_version[0] <= "2":
+        # version 1 database had mixed path notations, changed them all to abspath
+        # version 2 database still had mixed path notations, because of windows short name, changed them all to realpath
+        print(f"Image Browser: Upgrading database from version {db_version[0]} to version {version}")
         conn, cursor = transaction_begin()
         update_db_data(cursor, "version", version)
         migrate_path_recorder_dirs(cursor)
         migrate_exif_data_dirs(cursor)
-        migrate_ranking_dirs(cursor)
+        migrate_ranking_dirs(cursor, db_version[0])
         transaction_end(conn, cursor)
+        print(f"Image Browser: Database upgraded from version {db_version[0]} to version {version}")
 
     return version
 

@@ -8,6 +8,7 @@ import re
 import shutil
 import stat
 import sys
+import tempfile
 import time
 import modules.extras
 import modules.ui
@@ -584,6 +585,10 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state):
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", delete_state
+
+    # Set temp_dir from webui settings, so gradio uses it
+    if shared.opts.temp_dir != "":
+        tempfile.tempdir = shared.opts.temp_dir
 
     img_path, _ = pure_path(img_path)
     if page_index == 1 or page_index == 0 or len(filenames) == 0:

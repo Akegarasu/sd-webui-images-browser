@@ -491,7 +491,7 @@ def natural_keys(text):
     return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
 
-def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search):
+def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search):
     global current_depth
     current_depth = 0
     fileinfos = traverse_all_files(dir_name, [], tab_base_tag_box, img_path_depth)
@@ -525,8 +525,30 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
                         result.append(file_info)
             fileinfos = result
         filenames = [finfo[0] for finfo in fileinfos]
-    if len(aes_filter) != 0:
-        fileinfos = [x for x in fileinfos if finfo_aes[x[0]] >= aes_filter]
+    if len(aes_filter_min) != 0 or len(aes_filter_max) != 0:
+        try:
+            aes_filter_min_num = float(aes_filter_min)
+        except ValueError:
+            aes_filter_min_num = 0
+        try:
+            aes_filter_max_num = float(aes_filter_max)
+        except ValueError:
+            aes_filter_max_num = 0
+        if aes_filter_min_num < 0:
+            aes_filter_min_num = 0
+        if aes_filter_max_num <= 0:
+            aes_filter_max_num = sys.maxsize
+
+        aes_fileinfos = []
+        for x in fileinfos:
+            if finfo_aes.get(x[0]):
+                try:
+                    aes_value = float(finfo_aes[x[0]])
+                except ValueError:
+                    aes_value = 0
+                if aes_value >= aes_filter_min_num and aes_value <= aes_filter_max_num:
+                    aes_fileinfos.append(x)
+        fileinfos = aes_fileinfos
         filenames = [finfo[0] for finfo in fileinfos]   
     if ranking_filter != "All":
         fileinfos = [x for x in fileinfos if get_ranking(x[0]) in ranking_filter]
@@ -583,7 +605,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state, hidden):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, delete_state, hidden):
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", delete_state, None
 
@@ -593,7 +615,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
         
     img_path, _ = pure_path(img_path)
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search)
+        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -782,7 +804,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Column():
                         ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive=True)
                     with gr.Row():  
-                        aes_filter = gr.Textbox(value="", label="minimum aesthetic_score")
+                        aes_filter_min = gr.Textbox(value="", label="minimum aesthetic_score")
+                        aes_filter_max = gr.Textbox(value="", label="maximum aesthetic_score")
                     with gr.Row():
                         with gr.Column():
                             img_file_info = gr.Textbox(label="Generate Info", interactive=False, lines=6)
@@ -886,7 +909,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     keyword.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     exif_keyword.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    aes_filter.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    aes_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    aes_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     ranking_filter.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     page_index.submit(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
@@ -896,7 +920,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state], 
+        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, delete_state], 
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")

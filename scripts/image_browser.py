@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import modules.extras
+import modules.images
 import modules.ui
 from modules import paths
 from modules import script_callbacks
@@ -582,14 +583,14 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state, hidden):
     if img_path == "":
-        return [], page_index, [],  "", "",  "", 0, "", delete_state
+        return [], page_index, [],  "", "",  "", 0, "", delete_state, None
 
     # Set temp_dir from webui settings, so gradio uses it
     if shared.opts.temp_dir != "":
         tempfile.tempdir = shared.opts.temp_dir
-
+        
     img_path, _ = pure_path(img_path)
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
         filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search)
@@ -610,7 +611,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info += "</div>"
     
     delete_state = False
-    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info, delete_state
+    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info, delete_state, None
 
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
@@ -628,13 +629,6 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
         file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
         tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
     return file, tm, num, file, turn_page_switch
-
-def show_next_image_info(tab_base_tag_box, num, page_index, filenames, auto_next):
-    file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
-    tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-    if auto_next:
-        num = int(num) + 1
-    return file, tm, num, file, ""
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):
     warning = None
@@ -671,6 +665,30 @@ def get_ranking(filename):
     ranking_value = wib_db.select_ranking(filename)
     return ranking_value
 
+def update_ranking(img_file_name, ranking, img_file_info):
+    saved_ranking = get_ranking(img_file_name)
+    if saved_ranking != ranking:
+        # Update db
+        wib_db.update_ranking(img_file_name, ranking)
+        if opts.image_browser_ranking_pnginfo and any(img_file_name.endswith(ext) for ext in image_ext_list[:3]):
+            # Update exif
+            image = Image.open(img_file_name)
+            geninfo, items = images.read_info_from_image(image)  
+            if geninfo is not None:
+                if "Ranking: " in geninfo:
+                    if ranking == "None":
+                        geninfo = re.sub(r', Ranking: \d+', '', geninfo)
+                    else:
+                        geninfo = re.sub(r'Ranking: \d+', f'Ranking: {ranking}', geninfo)
+                else:
+                    geninfo = f'{geninfo}, Ranking: {ranking}'
+            
+            original_time = os.path.getmtime(img_file_name)
+            images.save_image(image, os.path.dirname(img_file_name), "", extension=os.path.splitext(img_file_name)[1][1:], info=geninfo, forced_filename=os.path.splitext(os.path.basename(img_file_name))[0], save_to_dirs=False)
+            os.utime(img_file_name, (original_time, original_time))
+            img_file_info = geninfo
+    return img_file_info
+            
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     global init, exif_cache, aes_cache
     dir_name = None
@@ -744,7 +762,6 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         end_page = gr.Button('End Page') 
                     with gr.Row():
                         ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tab.base_tag}_image_browser_ranking", interactive=True, visible=False)
-                        auto_next = gr.Checkbox(label="Next Image After Ranking (To be implemented)", interactive=False, visible=False)
                     with gr.Row():
                         image_gallery = gr.Gallery(show_label=False, elem_id=f"{tab.base_tag}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
                     with gr.Row() as delete_panel:
@@ -880,7 +897,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     turn_page_switch.change(
         fn=get_image_page, 
         inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter, exif_keyword, negative_prompt_search, delete_state], 
-        outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state]
+        outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel, ranking, to_dir_panel])
@@ -935,8 +952,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2])
     
     #ranking
-    ranking.change(wib_db.update_ranking, inputs=[img_file_name, ranking])
-    #ranking.change(show_next_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, auto_next], outputs=[img_file_name, img_file_time, image_index, hidden])
+    ranking.change(update_ranking, inputs=[img_file_name, ranking, img_file_info], outputs=[img_file_info])
         
     try:
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, hidden, img_file_info)
@@ -1027,8 +1043,8 @@ def on_ui_settings():
     image_browser_options.append(("image_browser_scan_exif", True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)", "images_scan_exif"))
     image_browser_options.append(("image_browser_mod_shift", False, "Change CTRL keybindings to SHIFT", None))
     image_browser_options.append(("image_browser_mod_ctrl_shift", False, "or to CTRL+SHIFT", None))
-    #image_browser_options.append(("image_browser_ranking_pnginfo", False, "Save ranking in image's pnginfo", None))
     image_browser_options.append(("image_browser_enable_maint", True, "Enable Maintenance tab", None))
+    image_browser_options.append(("image_browser_ranking_pnginfo", False, "Save ranking in image's pnginfo", None))
 
     image_browser_options.append(("image_browser_page_columns", 6, "Number of columns on the page", "images_history_page_columns"))
     image_browser_options.append(("image_browser_page_rows", 6, "Number of rows on the page", "images_history_page_rows"))

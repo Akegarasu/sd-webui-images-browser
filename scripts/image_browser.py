@@ -7,15 +7,14 @@ import random
 import re
 import shutil
 import stat
+import subprocess as sp
 import sys
 import tempfile
 import time
 import modules.extras
 import modules.images
 import modules.ui
-from modules import paths
-from modules import script_callbacks
-from modules import shared, scripts, images
+from modules import paths, shared, script_callbacks, scripts, images
 from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton
@@ -58,6 +57,7 @@ refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
 down_symbol = '\U000025bc'  # ▼
 caution_symbol = '\U000026a0'  # ⚠
+folder_symbol = '\U0001f4c2'  # 📂
 current_depth = 0
 init = True
 copy_move = ["Move", "Copy"]
@@ -491,6 +491,19 @@ def natural_keys(text):
     '''
     return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
+def open_folder(path):
+    if os.path.exists(path):
+        # Code from ui_common.py
+        if not shared.cmd_opts.hide_ui_dir_config:
+            if platform.system() == "Windows":
+                os.startfile(path)
+            elif platform.system() == "Darwin":
+                sp.Popen(["open", path])
+            elif "microsoft-standard-WSL2" in platform.uname().release:
+                sp.Popen(["wsl-open", path])
+            else:
+                sp.Popen(["xdg-open", path])
+
 def exif_search(needle, haystack, use_regex, case_sensitive):
     found = False
     if use_regex:
@@ -838,10 +851,16 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         aes_filter_min = gr.Textbox(value="", label="minimum aesthetic_score")
                         aes_filter_max = gr.Textbox(value="", label="maximum aesthetic_score")
                     with gr.Row():
-                        with gr.Column():
-                            img_file_info = gr.Textbox(label="Generate Info", interactive=False, lines=6)
-                            img_file_name = gr.Textbox(value="", label="File Name", interactive=False)
-                            img_file_time= gr.HTML()
+                        img_file_info = gr.Textbox(label="Generate Info", interactive=False, lines=6)
+                    with gr.Row():
+                        img_file_name = gr.Textbox(value="", label="File Name", interactive=False)
+                    with gr.Row():
+                        img_file_time= gr.HTML()
+                    with gr.Row():
+                            open_folder_button = gr.Button(folder_symbol)
+                            gr.HTML("&nbsp")
+                            gr.HTML("&nbsp")
+                            gr.HTML("&nbsp")
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_button_panel", visible=False) as button_panel:
                         if tab.name != favorite_tab_name:
                             favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn")
@@ -1020,7 +1039,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             inputs=[],
             outputs=[path_recorder, to_dir_saved]
             )
-    
+
+        open_folder_button.click(
+            fn=lambda: open_folder(dir_name),
+            inputs=[],
+            outputs=[]
+        )
+
 def run_pnginfo(image, image_path, image_file_name):
     if image is None:
         return '', '', ''

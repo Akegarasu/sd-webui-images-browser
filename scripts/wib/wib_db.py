@@ -243,12 +243,23 @@ def migrate_path_recorder_dirs(cursor):
         if path != real_path:
             update_from = path
             update_to = real_path
-            cursor.execute('''
-            UPDATE path_recorder
-            SET path = ?,
-                path_display = ? || SUBSTR(path_display, LENGTH(?) + 1)
-            WHERE path = ?
-            ''', (update_to, update_to, update_from, update_from))
+            try:
+                cursor.execute('''
+                UPDATE path_recorder
+                SET path = ?,
+                    path_display = ? || SUBSTR(path_display, LENGTH(?) + 1)
+                WHERE path = ?
+                ''', (update_to, update_to, update_from, update_from))
+            except sqlite3.IntegrityError as e:
+                # these are double keys, because the same file can be in the db with different path notations
+                (e_msg,) = e.args
+                if e_msg.startswith("UNIQUE constraint"):
+                    cursor.execute('''
+                    DELETE FROM path_recorder
+                    WHERE path = ?
+                    ''', (update_from,))
+                else:
+                    raise
 
     return
 
@@ -309,12 +320,23 @@ def migrate_ranking_dirs(cursor, db_version):
             name = file
             update_from = filepath
             update_to = os.path.join(real_path, file)
-            cursor.execute('''
-            UPDATE ranking
-            SET file = ?,
-                name = ?
-            WHERE file = ?
-            ''', (update_to, name, update_from))
+            try:
+                cursor.execute('''
+                UPDATE ranking
+                SET file = ?,
+                    name = ?
+                WHERE file = ?
+                ''', (update_to, name, update_from))
+            except sqlite3.IntegrityError as e:
+                # these are double keys, because the same file can be in the db with different path notations
+                (e_msg,) = e.args
+                if e_msg.startswith("UNIQUE constraint"):
+                    cursor.execute('''
+                    DELETE FROM ranking
+                    WHERE file = ?
+                    ''', (update_from,))
+                else:
+                    raise
 
     return
 

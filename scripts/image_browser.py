@@ -62,6 +62,7 @@ current_depth = 0
 init = True
 copy_move = ["Move", "Copy"]
 copied_moved = ["Moved", "Copied"]
+np = "negative_prompt: "
 
 path_maps = {
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
@@ -490,8 +491,24 @@ def natural_keys(text):
     '''
     return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
+def exif_search(needle, haystack, use_regex, case_sensitive):
+    found = False
+    if use_regex:
+        if case_sensitive:
+            pattern = re.compile(needle, re.DOTALL)
+        else:
+            pattern = re.compile(needle, re.DOTALL | re.IGNORECASE)
+        if pattern.search(haystack) is not None:
+            found = True
+    else:
+        if not case_sensitive:
+            haystack = haystack.lower()
+            needle = needle.lower()
+        if needle in haystack:
+            found = True
+    return found
 
-def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search):
+def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     global current_depth
     current_depth = 0
     fileinfos = traverse_all_files(dir_name, [], tab_base_tag_box, img_path_depth)
@@ -504,27 +521,37 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
         filenames = [finfo[0] for finfo in fileinfos]
     if len(exif_keyword) != 0:
-        if negative_prompt_search == "Yes":
-            fileinfos = [x for x in fileinfos if exif_keyword.lower() in finfo_exif[x[0]].lower()]
-        else:
-            result = []
-            for file_info in fileinfos:
-                file_name = file_info[0]
-                file_exif = finfo_exif[file_name].lower()
-                start_index = file_exif.find("negative_prompt: ")
-                end_index = file_exif.find("\n", start_index)
-                if negative_prompt_search == "Only":
-                    sub_string = file_exif[start_index:end_index].split("negative_prompt: ")[-1].strip()
-                    if exif_keyword.lower() in sub_string:
-                        result.append(file_info)
-                else:
-                    sub_string = file_exif[start_index:end_index].strip()
-                    file_exif = file_exif.replace(sub_string, "")
-                    
-                    if exif_keyword.lower() in file_exif:
-                        result.append(file_info)
-            fileinfos = result
-        filenames = [finfo[0] for finfo in fileinfos]
+        if use_regex:
+            regex_error = False
+            try:
+                test_re = re.compile(exif_keyword, re.DOTALL)
+            except re.error as e:
+                regex_error = True
+                print(f"Regex error: {e}")
+        if (use_regex and not regex_error) or not use_regex:
+            if negative_prompt_search == "Yes":
+                fileinfos = [x for x in fileinfos if exif_search(exif_keyword, finfo_exif[x[0]], use_regex, case_sensitive)]
+            else:
+                result = []
+                for file_info in fileinfos:
+                    file_name = file_info[0]
+                    file_exif = finfo_exif[file_name]
+                    file_exif_lc = file_exif.lower()
+                    start_index = file_exif_lc.find(np)
+                    end_index = file_exif.find("\n", start_index)
+                    if negative_prompt_search == "Only":
+                        start_index = start_index + len(np)
+                        sub_string = file_exif[start_index:end_index].strip()
+                        if exif_search(exif_keyword, sub_string, use_regex, case_sensitive):
+                            result.append(file_info)
+                    else:
+                        sub_string = file_exif[start_index:end_index].strip()
+                        file_exif = file_exif.replace(sub_string, "")
+                        
+                        if exif_search(exif_keyword, file_exif, use_regex, case_sensitive):
+                            result.append(file_info)
+                fileinfos = result
+            filenames = [finfo[0] for finfo in fileinfos]
     if len(aes_filter_min) != 0 or len(aes_filter_max) != 0:
         try:
             aes_filter_min_num = float(aes_filter_min)
@@ -605,7 +632,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, delete_state, hidden):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive, delete_state, hidden):
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", delete_state, None
 
@@ -615,7 +642,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
         
     img_path, _ = pure_path(img_path)
     if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search)
+        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = length // num_of_imgs_per_page + 1
@@ -798,9 +825,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         sort_order = ToolButton(value=down_symbol)
                     with gr.Row():
                         keyword = gr.Textbox(value="", label="filename keyword")
-                    with gr.Row():
-                            exif_keyword = gr.Textbox(value="", label="exif keyword")
-                            negative_prompt_search = gr.Radio(value="No", choices=["No", "Yes", "Only"], label="Search negative prompt", interactive=True)
+                    with gr.Box():
+                        with gr.Row():
+                                exif_keyword = gr.Textbox(value="", label="exif keyword")
+                                negative_prompt_search = gr.Radio(value="No", choices=["No", "Yes", "Only"], label="Search negative prompt", interactive=True)
+                        with gr.Row():
+                                case_sensitive = gr.Checkbox(value=False, label="case sensitive")
+                                use_regex = gr.Checkbox(value=False, label=r"regex - e.g. ^(?!.*Hires).*$")
                     with gr.Column():
                         ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="ranking filter", interactive=True)
                     with gr.Row():  
@@ -920,7 +951,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, delete_state], 
+        inputs=[img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive, delete_state], 
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")

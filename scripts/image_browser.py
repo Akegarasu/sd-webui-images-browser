@@ -276,26 +276,30 @@ def save_image(file_name, filenames, page_index, turn_page_switch, dest_path):
 
     return message, filenames, page_index, turn_page_switch
 
-def delete_image(delete_num, name, filenames, image_index, visible_num):
+def delete_image(delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch):
     if name == "":
         return filenames, delete_num
     else:
         delete_num = int(delete_num)
-        visible_num = int(visible_num)
         image_index = int(image_index)
+        visible_num = int(visible_num)
         index = list(filenames).index(name)
-        i = 0
         new_file_list = []
-        for name in filenames:
+        if not delete_confirm:
+            delete_num = min(visible_num - image_index, delete_num)
+
+        if delete_num > 1:
+            # Force refresh page when done, no special js handling necessary
+            #turn_page_switch = abs(turn_page_switch) + 1
+            turn_page_switch = -turn_page_switch
+            delete_state = False
+        else:
+            delete_state = True
+        for i, name in enumerate(filenames):
             if i >= index and i < index + delete_num:
                 if os.path.exists(name):
-                    if visible_num == image_index:
-                        new_file_list.append(name)
-                        i += 1
-                        continue
                     if opts.image_browser_delete_message:
                         print(f"Deleting file {name}")
-                    delete_state = True
                     delete_recycle(name)
                     visible_num -= 1
                     if opts.image_browser_txt_files:
@@ -306,8 +310,7 @@ def delete_image(delete_num, name, filenames, image_index, visible_num):
                     print(f"File does not exist {name}")
             else:
                 new_file_list.append(name)
-            i += 1
-    return new_file_list, 1, visible_num, delete_state
+    return new_file_list, 1, delete_state, turn_page_switch, visible_num
 
 def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) -> List[Tuple[str, os.stat_result, str, int]]:
     global current_depth
@@ -407,7 +410,7 @@ def cache_exif(fileinfos):
                         wib_db.update_aes_data(conn, fi_info[0], aes_value)
                         new_aes = new_aes + 1
                     except Exception:
-                        logger.warning(f"No EXIF in image or txt file for {fi_info[0]}")
+                        logger.warning(f"cache_exif: No EXIF in image or txt file for {fi_info[0]}")
                         # Saved with defaults to not scan it again next time
                         finfo_exif[fi_info[0]] = "0"
                         exif_cache[fi_info[0]] = "0"
@@ -844,6 +847,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Row() as delete_panel:
                         with gr.Column(scale=1):
                             delete_num = gr.Number(value=1, interactive=True, label="delete next")
+                            delete_confirm = gr.Checkbox(value=False, label="also delete off-screen images")
                         with gr.Column(scale=3):
                             delete = gr.Button('Delete', elem_id=f"{tab.base_tag}_image_browser_del_img_btn")
 
@@ -960,7 +964,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth])
 
     #delete
-    delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num], outputs=[filenames, delete_num, visible_img_num, delete_state])
+    delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch], outputs=[filenames, delete_num, delete_state, turn_page_switch, visible_img_num])
     delete.click(fn=None, _js="image_browser_delete", inputs=[delete_num, tab_base_tag_box, image_index], outputs=None) 
     if tab.name == favorite_tab_name:
         img_file_name.change(fn=update_move_text_one, inputs=[to_dir_btn], outputs=[to_dir_btn])
@@ -1078,7 +1082,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
 def run_pnginfo(image, image_path, image_file_name):
     if image is None:
-        return '', '', ''
+        return '', '', '', '', ''
     geninfo, items = images.read_info_from_image(image)
     items = {**{'parameters': geninfo}, **items}
 
@@ -1099,7 +1103,7 @@ def run_pnginfo(image, image_path, image_file_name):
                 for line in f:
                     geninfo += line
         except Exception:
-            logger.warning(f"No EXIF in image or txt file")
+            logger.warning(f"run_pnginfo: No EXIF in image or txt file")
 
     if openoutpaint:
         prompt, neg_prompt = wib_db.select_prompts(image_file_name)

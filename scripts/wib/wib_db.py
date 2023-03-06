@@ -505,6 +505,28 @@ def update_aes_data(cursor, file, value):
 
     return
 
+def select_prompts(file):
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        SELECT key, value
+        FROM exif_data
+        WHERE file = ?
+          AND KEY in ('prompt', 'negative_prompt')
+        ''', (file,))
+
+        rows = cursor.fetchall()
+    prompt = ""
+    neg_prompt = ""
+    for row in rows:
+        (key, value) = row
+        if key == 'prompt':
+            prompt = value
+        elif key == 'negative_prompt':
+            neg_prompt = value
+
+    return prompt, neg_prompt
+
 def load_exif_data(exif_cache):
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()

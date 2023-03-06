@@ -63,6 +63,7 @@ init = True
 copy_move = ["Move", "Copy"]
 copied_moved = ["Moved", "Copied"]
 np = "negative_prompt: "
+openoutpaint = False
 
 path_maps = {
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
@@ -508,6 +509,15 @@ def open_folder(path):
             else:
                 sp.Popen(["xdg-open", path])
 
+def check_ext(ext):
+    found = False
+    scripts_list = scripts.list_scripts("scripts", ".py")
+    for scriptfile in scripts_list:
+            if ext in scriptfile.basedir.lower():
+                found = True
+                break
+    return found
+
 def exif_search(needle, haystack, use_regex, case_sensitive):
     found = False
     if use_regex:
@@ -756,7 +766,7 @@ def update_ranking(img_file_name, ranking, img_file_info):
     return img_file_info
             
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
-    global init, exif_cache, aes_cache
+    global init, exif_cache, aes_cache, openoutpaint
     dir_name = None
     others_dir = False
     maint = False
@@ -773,6 +783,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         init = False
     
     path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
+    openoutpaint = check_ext("openoutpaint")
 
     if tab.name == "Others":
         others_dir = True
@@ -861,10 +872,10 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Row():
                         img_file_time= gr.HTML()
                     with gr.Row():
-                            open_folder_button = gr.Button(folder_symbol)
-                            gr.HTML("&nbsp")
-                            gr.HTML("&nbsp")
-                            gr.HTML("&nbsp")
+                        open_folder_button = gr.Button(folder_symbol, visible=standard_ui or others_dir)
+                        gr.HTML("&nbsp")
+                        gr.HTML("&nbsp")
+                        gr.HTML("&nbsp")
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_button_panel", visible=False) as button_panel:
                         if tab.name != favorite_tab_name:
                             favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn")
@@ -872,6 +883,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                             send_to_buttons = modules.generation_parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
                         except:
                             pass
+                        sendto_openoutpaint = gr.Button("Send to openOutpaint", elem_id=f"{tab.base_tag}_image_browser_openoutpaint_btn", visible=openoutpaint)
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_to_dir_panel", visible=False) as to_dir_panel:
                         with gr.Box():
                             with gr.Row():
@@ -910,6 +922,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         elif opts.image_browser_mod_shift:
                             mod_keys = f"{mod_keys}S"
                         image_browser_mod_keys = gr.Textbox(value=mod_keys, elem_id=f"{tab.base_tag}_image_browser_mod_keys")
+                        image_browser_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_prompt")
+                        image_browser_neg_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_neg_prompt")
 
     # Maintenance tab
     with gr.Row(visible=maint): 
@@ -1027,7 +1041,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
 
    
-    hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2])
+    hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
     
     #ranking
     ranking.change(update_ranking, inputs=[img_file_name, ranking, img_file_info], outputs=[img_file_info])
@@ -1042,12 +1056,24 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             fn=tab_select, 
             inputs=[],
             outputs=[path_recorder, to_dir_saved]
-            )
-
+        )
         open_folder_button.click(
             fn=lambda: open_folder(dir_name),
             inputs=[],
             outputs=[]
+        )
+    elif others_dir:
+        open_folder_button.click(
+            fn=open_folder,
+            inputs=[img_path],
+            outputs=[]
+        )
+    if standard_ui or others_dir:
+        sendto_openoutpaint.click(
+            fn=None,
+            inputs=[tab_base_tag_box, image_index, image_browser_prompt, image_browser_neg_prompt],
+            outputs=[],
+            _js="image_browser_openoutpaint_send"
         )
 
 def run_pnginfo(image, image_path, image_file_name):
@@ -1074,7 +1100,18 @@ def run_pnginfo(image, image_path, image_file_name):
                     geninfo += line
         except Exception:
             logger.warning(f"No EXIF in image or txt file")
-    return '', geninfo, info
+
+    if openoutpaint:
+        prompt, neg_prompt = wib_db.select_prompts(image_file_name)
+        if prompt == "0":
+            prompt = ""
+        if neg_prompt == "0":
+            neg_prompt = ""
+    else:
+        prompt = ""
+        neg_prompt = ""
+
+    return '', geninfo, info, prompt, neg_prompt
 
 
 def on_ui_tabs():

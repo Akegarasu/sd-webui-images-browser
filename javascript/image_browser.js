@@ -93,6 +93,46 @@ function image_browser_turnpage(tab_base_tag) {
     });
 }
 
+async function image_browser_openoutpaint_get_image(tab_base_tag, image_index) {
+    var image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery .gallery-item`)[image_index];
+
+	const canvas = document.createElement("canvas");
+	const image = document.createElement("img");
+	image.src = image_browser_image.querySelector("img").src;
+
+	await image.decode();
+
+	canvas.width = image.width;
+	canvas.height = image.height;
+
+	canvas.getContext("2d").drawImage(image, 0, 0);
+
+	return canvas.toDataURL();
+}
+
+function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browser_prompt, image_browser_neg_prompt, name = "WebUI Resource") {
+    image_browser_openoutpaint_get_image(tab_base_tag, image_index)
+		.then((dataURL) => {
+			// Send to openOutpaint
+			openoutpaint_send_image(dataURL, name);
+
+			// Send prompt to openOutpaint
+			const tab = get_uiCurrentTabContent().id;
+
+			const prompt = image_browser_prompt;
+            const negPrompt = image_browser_neg_prompt;
+            openoutpaint.frame.contentWindow.postMessage({
+                key: openoutpaint.key,
+                type: "openoutpaint/set-prompt",
+                prompt,
+                negPrompt,
+            });
+
+			// Change Tab
+			openoutpaint_gototab();
+		})
+}
+
 function image_browser_init() {
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list");
     if (tab_base_tags) {

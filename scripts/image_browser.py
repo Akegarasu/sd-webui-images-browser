@@ -356,17 +356,21 @@ def cache_exif(fileinfos):
                 if fi_info[0].endswith(image_ext_list[3]) or fi_info[0].endswith(image_ext_list[4]) or fi_info[0].endswith(image_ext_list[5]):
                     allExif = False
                 else:
-                    if fi_info[0].endswith(image_ext_list[0]):
-                        image = PngImageFile(fi_info[0])
-                    else:
-                        image = JpegImageFile(fi_info[0])
                     try:
-                        allExif = modules.extras.run_pnginfo(image)[1]
-                    except OSError as e:
-                        if e.errno == 22:
-                            logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                        if fi_info[0].endswith(image_ext_list[0]):
+                            image = PngImageFile(fi_info[0])
                         else:
-                            raise
+                            image = JpegImageFile(fi_info[0])
+                        try:
+                            allExif = modules.extras.run_pnginfo(image)[1]
+                        except OSError as e:
+                            if e.errno == 22:
+                                logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                            else:
+                                raise
+                    except SyntaxError:
+                        allExif = False
+                        logger.warning(f"Extension and content don't match: {fi_info[0]}")
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif

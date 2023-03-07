@@ -290,7 +290,6 @@ def delete_image(delete_num, name, filenames, image_index, visible_num, delete_c
 
         if delete_num > 1:
             # Force refresh page when done, no special js handling necessary
-            #turn_page_switch = abs(turn_page_switch) + 1
             turn_page_switch = -turn_page_switch
             delete_state = False
         else:
@@ -707,7 +706,9 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
     else:
         file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
         tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-    return file, tm, num, file, turn_page_switch
+        with Image.open(file) as image:
+            _, geninfo, info = modules.extras.run_pnginfo(image)
+    return file, tm, num, file, turn_page_switch, info
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):
     warning = None
@@ -850,6 +851,9 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                             delete_confirm = gr.Checkbox(value=False, label="also delete off-screen images")
                         with gr.Column(scale=3):
                             delete = gr.Button('Delete', elem_id=f"{tab.base_tag}_image_browser_del_img_btn")
+                    with gr.Row() as info_add_panel:
+                        with gr.Accordion("Additional Generate Info", open=False):
+                            img_file_info_add = gr.HTML()
 
                 with gr.Column(scale=1): 
                     with gr.Row(scale=0.5):
@@ -996,7 +1000,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
-    turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel, ranking, to_dir_panel])
+    turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=[delete_panel, button_panel, ranking, to_dir_panel, info_add_panel])
 
     sort_order.click(
         fn=sort_order_flip,
@@ -1039,8 +1043,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     )
 
     # other functions
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch])
-    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel, ranking, to_dir_panel])
+    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add])
+    set_index.click(fn=lambda:(gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)), inputs=None, outputs=[delete_panel, button_panel, ranking, to_dir_panel, info_add_panel])
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
 

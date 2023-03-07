@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 from modules import scripts
+import datetime
 
 version = 3
 
@@ -388,20 +389,29 @@ def select_ranking(filename):
     
     # if ranking not found search again, without path (moved?)
     if ranking_value is None:
+        c_time = datetime.datetime.fromtimestamp(os.path.getctime(filename)).strftime('%Y-%m-%d %H:%M:%S')
         name = os.path.basename(filename)
         cursor.execute('''
         SELECT ranking
         FROM ranking
-        WHERE name = ?
-        ''', (name,))
+        WHERE name = ? 
+        AND created = ?
+        ''', (name, c_time))
         ranking_value = cursor.fetchone()
         # and insert with current filepath
         if ranking_value is not None:
+            cursor.execute('''
+                DELETE
+                FROM ranking
+                WHERE name = ? 
+                AND created = ?
+                ''', (name, c_time))
+            
             (insert_ranking,) = ranking_value
             cursor.execute('''
-            INSERT INTO ranking (file, name, ranking)
-            VALUES (?, ?, ?)
-            ''', (filename, name, insert_ranking))
+            INSERT INTO ranking (file, name, ranking, created)
+            VALUES (?, ?, ?, ?)
+            ''', (filename, name, insert_ranking, c_time))
     
     if ranking_value is None:
         return_ranking = "None"
@@ -415,17 +425,19 @@ def update_ranking(file, ranking):
     name = os.path.basename(file)
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
+        c_time = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime('%Y-%m-%d %H:%M:%S')
         if ranking == "None":
                 cursor.execute('''
                 DELETE FROM ranking
-                WHERE name = ?
-                ''', (name,))
+                WHERE name = ? 
+                AND created = ?
+                ''', (name, c_time))
         else:
                 cursor.execute('''
                 INSERT OR REPLACE
-                INTO ranking (file, name, ranking)
-                VALUES (?, ?, ?)
-                ''', (file, name, ranking))
+                INTO ranking (file, name, ranking, created)
+                VALUES (?, ?, ?, ?)
+                ''', (file, name, ranking, c_time))
     
     return
 

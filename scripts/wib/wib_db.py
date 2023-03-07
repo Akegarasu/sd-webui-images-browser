@@ -1,9 +1,10 @@
+import datetime
 import json
 import os
 import sqlite3
 from modules import scripts
 
-version = 3
+version = 4
 
 path_recorder_file = os.path.join(scripts.basedir(), "path_recorder.txt")
 aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
@@ -340,30 +341,53 @@ def migrate_ranking_dirs(cursor, db_version):
 
     return
 
+def get_c_time(file):
+    c_time = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime('%Y-%m-%d %H:%M:%S')
+    return c_time
+
+def migrate_ranking_c_time(cursor):
+    cursor.execute('''
+    SELECT file
+    FROM ranking
+    ''')
+    for (file,) in cursor.fetchall():
+        if os.path.exists(file):
+            c_time = get_c_time(file)
+            cursor.execute('''
+            UPDATE ranking
+            SET created = ?
+            WHERE file = ?
+            ''', (c_time, file))
+    
+    return
+
 def check():
     if not os.path.exists(db_file):
-        print("Image Browser: Creating database")
         conn, cursor = transaction_begin()
+        print("Image Browser: Creating database")
         create_db(cursor)
         update_db_data(cursor, "version", version)
         migrate_path_recorder(cursor)
         migrate_exif_data(cursor)
         migrate_ranking(cursor)
+        migrate_ranking_c_time(cursor)
         transaction_end(conn, cursor)
         print("Image Browser: Database created")
     db_version = get_version()
+    conn, cursor = transaction_begin()
     if db_version[0] <= "2":
         # version 1 database had mixed path notations, changed them all to abspath
         # version 2 database still had mixed path notations, because of windows short name, changed them all to realpath
         print(f"Image Browser: Upgrading database from version {db_version[0]} to version {version}")
-        conn, cursor = transaction_begin()
-        update_db_data(cursor, "version", version)
         migrate_path_recorder_dirs(cursor)
         migrate_exif_data_dirs(cursor)
         migrate_ranking_dirs(cursor, db_version[0])
-        transaction_end(conn, cursor)
+    if db_version[0] <= "3":
+        migrate_ranking_c_time(cursor)
+        update_db_data(cursor, "version", version)
         print(f"Image Browser: Database upgraded from version {db_version[0]} to version {version}")
-
+    transaction_end(conn, cursor)
+        
     return version
 
 def load_path_recorder():
@@ -377,31 +401,40 @@ def load_path_recorder():
 
     return path_recorder
 
-def select_ranking(filename):
+def select_ranking(file):
     conn, cursor = transaction_begin()
     cursor.execute('''
     SELECT ranking
     FROM ranking
     WHERE file = ?
-    ''', (filename,))
+    ''', (file,))
     ranking_value = cursor.fetchone()
     
     # if ranking not found search again, without path (moved?)
     if ranking_value is None:
-        name = os.path.basename(filename)
+        c_time = get_c_time(file)
+        name = os.path.basename(file)
         cursor.execute('''
         SELECT ranking
         FROM ranking
-        WHERE name = ?
-        ''', (name,))
+        WHERE name = ? 
+        AND created = ?
+        ''', (name, c_time))
         ranking_value = cursor.fetchone()
         # and insert with current filepath
         if ranking_value is not None:
+            cursor.execute('''
+                DELETE
+                FROM ranking
+                WHERE name = ? 
+                AND created = ?
+                ''', (name, c_time))
+            
             (insert_ranking,) = ranking_value
             cursor.execute('''
-            INSERT INTO ranking (file, name, ranking)
-            VALUES (?, ?, ?)
-            ''', (filename, name, insert_ranking))
+            INSERT INTO ranking (file, name, ranking, created)
+            VALUES (?, ?, ?, ?)
+            ''', (file, name, insert_ranking, c_time))
     
     if ranking_value is None:
         return_ranking = "None"
@@ -415,17 +448,19 @@ def update_ranking(file, ranking):
     name = os.path.basename(file)
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
+        c_time = get_c_time(file)
         if ranking == "None":
                 cursor.execute('''
                 DELETE FROM ranking
-                WHERE name = ?
-                ''', (name,))
+                WHERE name = ? 
+                AND created = ?
+                ''', (name, c_time))
         else:
                 cursor.execute('''
                 INSERT OR REPLACE
-                INTO ranking (file, name, ranking)
-                VALUES (?, ?, ?)
-                ''', (file, name, ranking))
+                INTO ranking (file, name, ranking, created)
+                VALUES (?, ?, ?, ?)
+                ''', (file, name, ranking, c_time))
     
     return
 

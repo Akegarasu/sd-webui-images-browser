@@ -374,6 +374,9 @@ def cache_exif(fileinfos):
                     except SyntaxError:
                         allExif = False
                         logger.warning(f"Extension and content don't match: {fi_info[0]}")
+                    except PermissionError as e:
+                        allExif = False
+                        logger.warning(f"PermissionError: {e}: {fi_info[0]}")
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif

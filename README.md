@@ -17,6 +17,7 @@ and restart your stable-diffusion-webui, then you can see the new tab "Image Bro
 Please be aware that when scanning a directory for the first time, the png-cache will be built. This can take several minutes, depending on the amount of images.
 
 ## Recent updates
+- Hidable UI components
 - Send to openOutpaint
 - Regex search
 - Maximum aesthetic_score filter
@@ -49,4 +50,4 @@ Please be aware that when scanning a directory for the first time, the png-cache
 
 ## Credit
 
-Credit goes to the original maintainer of this extension: https://github.com/yfszzx and to major contributor https://github.com/Klace
+Credit goes to the original maintainer of this extension: https://github.com/yfszzx and to major contributors https://github.com/Klace and https://github.com/EllangoK

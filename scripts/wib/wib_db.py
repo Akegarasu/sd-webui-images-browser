@@ -1,10 +1,11 @@
-import datetime
+import hashlib
 import json
 import os
 import sqlite3
 from modules import scripts
+from PIL import Image
 
-version = 4
+version = 5
 
 path_recorder_file = os.path.join(scripts.basedir(), "path_recorder.txt")
 aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
@@ -15,6 +16,26 @@ db_file = os.path.join(scripts.basedir(), "wib.sqlite3")
 np = "Negative prompt: "
 st = "Steps: "
 timeout = 30
+
+def create_filehash(cursor):
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS filehash (
+            file TEXT PRIMARY KEY,
+            hash TEXT,
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TRIGGER filehash_tr 
+        AFTER UPDATE ON filehash
+        BEGIN
+            UPDATE filehash SET updated = CURRENT_TIMESTAMP WHERE file = OLD.file;
+        END;
+    ''')
+
+    return
 
 def create_db(cursor):
     cursor.execute('''
@@ -86,6 +107,8 @@ def create_db(cursor):
             UPDATE ranking SET updated = CURRENT_TIMESTAMP WHERE file = OLD.file;
         END;
     ''')
+
+    create_filehash(cursor)
 
     return
 
@@ -210,6 +233,32 @@ def migrate_ranking(cursor):
                 INSERT INTO ranking (file, name, ranking)
                 VALUES (?, ?, ?)
                 ''', (file, name, info))
+
+    return
+
+def get_hash(file):
+    # Get filehash without exif info
+    image = Image.open(file)
+    hash = hashlib.sha512(image.tobytes()).hexdigest()
+    image.close()
+    
+    return hash
+
+def migrate_filehash(cursor, version):
+    if version <= "4":
+        create_filehash(cursor)
+    
+    cursor.execute('''
+    SELECT file
+    FROM ranking
+    ''')
+    for (file,) in cursor.fetchall():
+        if os.path.exists(file):
+            hash = get_hash(file)
+            cursor.execute('''
+            INSERT INTO filehash (file, hash)
+            VALUES (?, ?)
+            ''', (file, hash))
 
     return
 
@@ -341,26 +390,6 @@ def migrate_ranking_dirs(cursor, db_version):
 
     return
 
-def get_c_time(file):
-    c_time = datetime.datetime.fromtimestamp(os.path.getctime(file)).strftime('%Y-%m-%d %H:%M:%S')
-    return c_time
-
-def migrate_ranking_c_time(cursor):
-    cursor.execute('''
-    SELECT file
-    FROM ranking
-    ''')
-    for (file,) in cursor.fetchall():
-        if os.path.exists(file):
-            c_time = get_c_time(file)
-            cursor.execute('''
-            UPDATE ranking
-            SET created = ?
-            WHERE file = ?
-            ''', (c_time, file))
-    
-    return
-
 def check():
     if not os.path.exists(db_file):
         conn, cursor = transaction_begin()
@@ -370,7 +399,7 @@ def check():
         migrate_path_recorder(cursor)
         migrate_exif_data(cursor)
         migrate_ranking(cursor)
-        migrate_ranking_c_time(cursor)
+        migrate_filehash(cursor, str(version))
         transaction_end(conn, cursor)
         print("Image Browser: Database created")
     db_version = get_version()
@@ -382,8 +411,8 @@ def check():
         migrate_path_recorder_dirs(cursor)
         migrate_exif_data_dirs(cursor)
         migrate_ranking_dirs(cursor, db_version[0])
-    if db_version[0] <= "3":
-        migrate_ranking_c_time(cursor)
+    if db_version[0] <= "4":
+        migrate_filehash(cursor, db_version[0])
         update_db_data(cursor, "version", version)
         print(f"Image Browser: Database upgraded from version {db_version[0]} to version {version}")
     transaction_end(conn, cursor)
@@ -402,6 +431,8 @@ def load_path_recorder():
     return path_recorder
 
 def select_ranking(file):
+    hash = None
+
     conn, cursor = transaction_begin()
     cursor.execute('''
     SELECT ranking
@@ -410,36 +441,54 @@ def select_ranking(file):
     ''', (file,))
     ranking_value = cursor.fetchone()
     
-    # if ranking not found search again, without path (moved?)
+    # If ranking not found search again, without path (moved?)
     if ranking_value is None:
-        c_time = get_c_time(file)
         name = os.path.basename(file)
         cursor.execute('''
-        SELECT ranking
+        SELECT file, ranking
         FROM ranking
         WHERE name = ? 
-        AND created = ?
-        ''', (name, c_time))
-        ranking_value = cursor.fetchone()
-        # and insert with current filepath
-        if ranking_value is not None:
+        ''', (name,))
+        result = cursor.fetchone()
+        if result is not None:
+            (file_value, ranking_value) = result
             cursor.execute('''
-                DELETE
-                FROM ranking
-                WHERE name = ? 
-                AND created = ?
-                ''', (name, c_time))
-            
-            (insert_ranking,) = ranking_value
-            cursor.execute('''
-            INSERT INTO ranking (file, name, ranking, created)
-            VALUES (?, ?, ?, ?)
-            ''', (file, name, insert_ranking, c_time))
-    
+            SELECT hash
+            FROM filehash
+            WHERE file = ? 
+            ''', (file_value,))
+            hash_value = cursor.fetchone()
+            if hash is None:
+                hash = get_hash(file)
+            if hash_value is None:
+                hash_value = hash
+            else:
+                (hash_value,) = hash_value
+
+            if hash_value != hash:
+                ranking_value = None
+
+            # and update with current filepath
+            if ranking_value is not None:
+                cursor.execute('''
+                    UPDATE ranking
+                    SET file = ?
+                    WHERE file = ?
+                    ''', (file, file_value))
+
     if ranking_value is None:
         return_ranking = "None"
     else:
         (return_ranking,) = ranking_value
+
+        if hash is None:
+            hash = get_hash(file)
+        cursor.execute('''
+            INSERT OR REPLACE
+            INTO filehash (file, hash)
+            VALUES (?, ?)
+            ''', (file, hash))
+
     transaction_end(conn, cursor)
     
     return return_ranking
@@ -448,19 +497,24 @@ def update_ranking(file, ranking):
     name = os.path.basename(file)
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
-        c_time = get_c_time(file)
         if ranking == "None":
-                cursor.execute('''
-                DELETE FROM ranking
-                WHERE name = ? 
-                AND created = ?
-                ''', (name, c_time))
+            cursor.execute('''
+            DELETE FROM ranking
+            WHERE file = ? 
+            ''', (file,))
         else:
-                cursor.execute('''
-                INSERT OR REPLACE
-                INTO ranking (file, name, ranking, created)
-                VALUES (?, ?, ?, ?)
-                ''', (file, name, ranking, c_time))
+            cursor.execute('''
+            INSERT OR REPLACE
+            INTO ranking (file, name, ranking)
+            VALUES (?, ?, ?)
+            ''', (file, name, ranking))
+            
+            hash = get_hash(file)
+            cursor.execute('''
+            INSERT OR REPLACE
+            INTO filehash (file, hash)
+            VALUES (?, ?)
+            ''', (file, hash))
     
     return
 

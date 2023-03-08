@@ -988,11 +988,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     if set(hidden_component_map.keys()) != set(components_list):
         logger.warning(f"Invalid items present in either hidden_component_map or components_list. Make sure when adding new components they are added to both.")
 
+    override_hidden = set()
     if hasattr(opts, "image_browser_hidden_components"):
         for item in opts.image_browser_hidden_components:
             hidden_component_map[item].visible = False
-
-    component_visibility = {component: component.visible for component in hidden_component_map.values()}
+            override_hidden.add(hidden_component_map[item])
 
     change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
     img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
@@ -1033,7 +1033,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
-    hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
+    hide_on_thumbnail_view = [delete_panel, button_panel, ranking, to_dir_panel, info_add_panel]
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
 
     sort_order.click(
@@ -1078,7 +1078,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     # other functions
     set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add])
-    set_index.click(fn=lambda:(gr.update(visible=component_visibility[delete_panel] and True), gr.update(visible=component_visibility[button_panel] and True), gr.update(visible=component_visibility[ranking_panel] and True), gr.update(visible=component_visibility[to_dir_panel] and True), gr.update(visible=component_visibility[info_add_panel] and True)), inputs=None, outputs=hide_on_thumbnail_view)
+    set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
 

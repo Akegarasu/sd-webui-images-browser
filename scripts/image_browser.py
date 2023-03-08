@@ -20,9 +20,6 @@ from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton, DropdownMulti
 from scripts.wib import wib_db
 from PIL import Image
-from PIL.ExifTags import TAGS
-from PIL.JpegImagePlugin import JpegImageFile
-from PIL.PngImagePlugin import PngImageFile
 from pathlib import Path
 from typing import List, Tuple
 from itertools import chain
@@ -358,27 +355,21 @@ def cache_exif(fileinfos):
                 exif_cache[fi_info[0]] = "0"
                 finfo_aes[fi_info[0]] = "0"
                 aes_cache[fi_info[0]] = "0"
-                if fi_info[0].endswith(image_ext_list[3]) or fi_info[0].endswith(image_ext_list[4]) or fi_info[0].endswith(image_ext_list[5]):
+                try:
+                    image = Image.open(fi_info[0])
+                    (_, allExif, allExif_html) = modules.extras.run_pnginfo(image)
+                    image.close()
+                except SyntaxError:
                     allExif = False
-                else:
-                    try:
-                        if fi_info[0].endswith(image_ext_list[0]):
-                            image = PngImageFile(fi_info[0])
-                        else:
-                            image = JpegImageFile(fi_info[0])
-                        try:
-                            allExif = modules.extras.run_pnginfo(image)[1]
-                        except OSError as e:
-                            if e.errno == 22:
-                                logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
-                            else:
-                                raise
-                    except SyntaxError:
-                        allExif = False
-                        logger.warning(f"Extension and content don't match: {fi_info[0]}")
-                    except PermissionError as e:
-                        allExif = False
-                        logger.warning(f"PermissionError: {e}: {fi_info[0]}")
+                    logger.warning(f"Extension and content don't match: {fi_info[0]}")
+                except PermissionError as e:
+                    allExif = False
+                    logger.warning(f"PermissionError: {e}: {fi_info[0]}")
+                except OSError as e:
+                    if e.errno == 22:
+                        logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")
+                    else:
+                        raise
                 if allExif:
                     finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
@@ -457,6 +448,22 @@ def exif_rebuild(maint_wait):
                 cache_exif(fileinfos)
         logger.debug("Rebuild end")
         maint_last_msg = "Rebuild finished"
+    else:
+        maint_last_msg = "Exif cache not enabled in settings"
+
+    return maint_wait, maint_last_msg
+
+def exif_delete_0(maint_wait):
+    global finfo_exif, exif_cache, finfo_aes, aes_cache
+    if opts.image_browser_scan_exif:
+        conn, cursor = wib_db.transaction_begin()
+        wib_db.delete_exif_0(cursor)
+        wib_db.transaction_end(conn, cursor)
+        finfo_aes = {}
+        finfo_exif = {}
+        exif_cache = wib_db.load_exif_data(exif_cache)
+        aes_cache = wib_db.load_aes_data(aes_cache)
+        maint_last_msg = "Delete finished"
     else:
         maint_last_msg = "Exif cache not enabled in settings"
 
@@ -950,7 +957,9 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         maint_last_msg = gr.Textbox(label="Last message", interactive=False)
     with gr.Row(visible=maint): 
         with gr.Column(scale=1):
-            maint_rebuild = gr.Button(value="Rebuild exif cache")
+            maint_exif_rebuild = gr.Button(value="Rebuild exif cache")
+        with gr.Column(scale=1):
+            maint_exif_delete_0 = gr.Button(value="Delete 0-entries from exif cache")
         with gr.Column(scale=10):
             gr.HTML(visible=False)
     with gr.Row(visible=maint): 
@@ -1063,8 +1072,14 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         inputs=[img_path, path_recorder, img_path_remove, img_path_depth],
         outputs=[path_recorder, img_path_browser]
     )
-    maint_rebuild.click(
+    maint_exif_rebuild.click(
         fn=exif_rebuild,
+        show_progress=True,
+        inputs=[maint_wait],
+        outputs=[maint_wait, maint_last_msg]
+    )
+    maint_exif_delete_0.click(
+        fn=exif_delete_0,
         show_progress=True,
         inputs=[maint_wait],
         outputs=[maint_wait, maint_last_msg]

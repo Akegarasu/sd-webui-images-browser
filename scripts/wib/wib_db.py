@@ -571,6 +571,19 @@ def update_ranking_mult(cursor, update_from, update_to):
 
     return
 
+def delete_exif_0(cursor):
+    cursor.execute('''
+    DELETE FROM exif_data
+    WHERE file IN (
+        SELECT file FROM exif_data a
+        WHERE value = '0'
+        GROUP BY file
+        HAVING COUNT(*) = (SELECT COUNT(*) FROM exif_data WHERE file = a.file)
+    )
+    ''')
+
+    return
+
 def transaction_begin():
     conn = sqlite3.connect(db_file, timeout=timeout)
     conn.isolation_level = None

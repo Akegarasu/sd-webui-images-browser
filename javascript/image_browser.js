@@ -269,7 +269,12 @@ gradioApp().addEventListener("keydown", function(event) {
         }
     }
 
-    if (event.code == "KeyF") {
+    let modifiers_none = false;
+    if (!event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+        modifiers_none = true;
+    }
+
+    if (event.code == "KeyF" && modifiers_none) {
         if (tab_base_tag == "Favorites") {
             return;
         }
@@ -277,18 +282,18 @@ gradioApp().addEventListener("keydown", function(event) {
         favoriteBtn.dispatchEvent(new Event("click"));
     }
 
-    if (event.code == "KeyR") {
+    if (event.code == "KeyR" && modifiers_none) {
         const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page");
         refreshBtn.dispatchEvent(new Event("click"));
     }
 
-    if (event.code == "Delete") {
+    if (event.code == "Delete" && modifiers_none) {
         const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn");
         deleteBtn.dispatchEvent(new Event("click"));
     }
 
     // prevent left arrow following delete, instead refresh page
-    if (event.code == "ArrowLeft" && !event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+    if (event.code == "ArrowLeft" && modifiers_none) {
         const deleteState = gradioApp().getElementById(tab_base_tag + "_image_browser_delete_state").getElementsByClassName('gr-check-radio gr-checkbox')[0];
         if (deleteState.checked) {
             const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page");

@@ -19,7 +19,7 @@ from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton, DropdownMulti
 from scripts.wib import wib_db
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from pathlib import Path
 from typing import List, Tuple
 from itertools import chain
@@ -362,6 +362,9 @@ def cache_exif(fileinfos):
                 except SyntaxError:
                     allExif = False
                     logger.warning(f"Extension and content don't match: {fi_info[0]}")
+                except UnidentifiedImageError as e:
+                    allExif = False
+                    logger.warning(f"UnidentifiedImageError: {e}")
                 except PermissionError as e:
                     allExif = False
                     logger.warning(f"PermissionError: {e}: {fi_info[0]}")

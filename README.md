@@ -36,6 +36,8 @@ Please be aware that when scanning a directory for the first time, the png-cache
 - View and save favorites with individual folder depth
 - Now also supports jpg
 
+Please also check the [discussions](https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/discussions) for major update information.
+
 ## Keybindings
 | Key | Explanation |
 |---------|-------------|

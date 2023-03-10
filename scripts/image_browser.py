@@ -497,6 +497,48 @@ def exif_update_dirs(maint_update_dirs_from, maint_update_dirs_to, maint_wait):
 
     return maint_wait, maint_last_msg
 
+def reapply_ranking(path_recorder, maint_wait):
+    dirs = {}
+
+    for tab in tabs_list:
+        if os.path.exists(tab.path):
+            dirs[tab.path] = tab.path
+
+    for key in path_recorder:
+        if os.path.exists(key):
+            dirs[key] = key
+
+    conn, cursor = wib_db.transaction_begin()
+
+    # Traverse all known dirs, check if missing rankings are due to moved files
+    for key in dirs.keys():
+        fileinfos = traverse_all_files(key, [], "", 0)
+        for (file, _) in fileinfos:
+            # Is there a ranking for this full filepath
+            ranking_by_file = wib_db.get_ranking_by_file(cursor, file)
+            if ranking_by_file is None:
+                name = os.path.basename(file)
+                (ranking_by_name, alternate_hash) = wib_db.get_ranking_by_name(cursor, name)
+                # Is there a ranking only for the filename
+                if ranking_by_name is not None:
+                    hash = wib_db.get_hash(file)
+                    (alternate_file, alternate_ranking) = ranking_by_name
+                    if alternate_ranking is not None:
+                        (alternate_hash,) = alternate_hash
+                    # Does the found filename's file have no hash or the same hash?
+                    if alternate_hash is None or hash == alternate_hash:
+                        if os.path.exists(alternate_file):
+                            # Insert ranking as a copy of the found filename's ranking
+                            wib_db.insert_ranking(cursor, file, alternate_ranking, hash)
+                        else:
+                            # Replace ranking of the found filename
+                            wib_db.replace_ranking(cursor, file, alternate_file, hash)
+
+    wib_db.transaction_end(conn, cursor)
+    maint_last_msg = "Rankings reapplied"
+
+    return maint_wait, maint_last_msg
+
 def atof(text):
     try:
         retval = float(text)
@@ -564,66 +606,64 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     if len(keyword) != 0:
         fileinfos = [x for x in fileinfos if keyword.lower() in x[0].lower()]
         filenames = [finfo[0] for finfo in fileinfos]
-    if len(exif_keyword) != 0:
-        if use_regex:
-            regex_error = False
-            try:
-                test_re = re.compile(exif_keyword, re.DOTALL)
-            except re.error as e:
-                regex_error = True
-                print(f"Regex error: {e}")
-        if (use_regex and not regex_error) or not use_regex:
-            if negative_prompt_search == "Yes":
-                fileinfos = [x for x in fileinfos if exif_search(exif_keyword, finfo_exif[x[0]], use_regex, case_sensitive)]
-            else:
-                result = []
-                for file_info in fileinfos:
-                    file_name = file_info[0]
-                    file_exif = finfo_exif[file_name]
-                    file_exif_lc = file_exif.lower()
-                    start_index = file_exif_lc.find(np)
-                    end_index = file_exif.find("\n", start_index)
-                    if negative_prompt_search == "Only":
-                        start_index = start_index + len(np)
-                        sub_string = file_exif[start_index:end_index].strip()
-                        if exif_search(exif_keyword, sub_string, use_regex, case_sensitive):
-                            result.append(file_info)
-                    else:
-                        sub_string = file_exif[start_index:end_index].strip()
-                        file_exif = file_exif.replace(sub_string, "")
-                        
-                        if exif_search(exif_keyword, file_exif, use_regex, case_sensitive):
-                            result.append(file_info)
-                fileinfos = result
-            filenames = [finfo[0] for finfo in fileinfos]
-    if len(aes_filter_min) != 0 or len(aes_filter_max) != 0:
-        try:
-            aes_filter_min_num = float(aes_filter_min)
-        except ValueError:
-            aes_filter_min_num = 0
-        try:
-            aes_filter_max_num = float(aes_filter_max)
-        except ValueError:
-            aes_filter_max_num = 0
-        if aes_filter_min_num < 0:
-            aes_filter_min_num = 0
-        if aes_filter_max_num <= 0:
-            aes_filter_max_num = sys.maxsize
-
-        aes_fileinfos = []
-        for x in fileinfos:
-            if finfo_aes.get(x[0]):
+    
+    if opts.image_browser_scan_exif:
+        conn, cursor = wib_db.transaction_begin()
+        if len(exif_keyword) != 0:
+            if use_regex:
+                regex_error = False
                 try:
-                    aes_value = float(finfo_aes[x[0]])
-                except ValueError:
-                    aes_value = 0
-                if aes_value >= aes_filter_min_num and aes_value <= aes_filter_max_num:
-                    aes_fileinfos.append(x)
-        fileinfos = aes_fileinfos
-        filenames = [finfo[0] for finfo in fileinfos]   
-    if ranking_filter != "All":
-        fileinfos = [x for x in fileinfos if get_ranking(x[0]) in ranking_filter]
-        filenames = [finfo[0] for finfo in fileinfos]
+                    test_re = re.compile(exif_keyword, re.DOTALL)
+                except re.error as e:
+                    regex_error = True
+                    print(f"Regex error: {e}")
+            if (use_regex and not regex_error) or not use_regex:
+                if negative_prompt_search == "Yes":
+                    fileinfos = [x for x in fileinfos if exif_search(exif_keyword, finfo_exif[x[0]], use_regex, case_sensitive)]
+                else:
+                    result = []
+                    for file_info in fileinfos:
+                        file_name = file_info[0]
+                        file_exif = finfo_exif[file_name]
+                        file_exif_lc = file_exif.lower()
+                        start_index = file_exif_lc.find(np)
+                        end_index = file_exif.find("\n", start_index)
+                        if negative_prompt_search == "Only":
+                            start_index = start_index + len(np)
+                            sub_string = file_exif[start_index:end_index].strip()
+                            if exif_search(exif_keyword, sub_string, use_regex, case_sensitive):
+                                result.append(file_info)
+                        else:
+                            sub_string = file_exif[start_index:end_index].strip()
+                            file_exif = file_exif.replace(sub_string, "")
+                            
+                            if exif_search(exif_keyword, file_exif, use_regex, case_sensitive):
+                                result.append(file_info)
+                    fileinfos = result
+                filenames = [finfo[0] for finfo in fileinfos]
+        wib_db.fill_work_files(cursor, fileinfos)
+        if len(aes_filter_min) != 0 or len(aes_filter_max) != 0:
+            try:
+                aes_filter_min_num = float(aes_filter_min)
+            except ValueError:
+                aes_filter_min_num = 0
+            try:
+                aes_filter_max_num = float(aes_filter_max)
+            except ValueError:
+                aes_filter_max_num = 0
+            if aes_filter_min_num < 0:
+                aes_filter_min_num = 0
+            if aes_filter_max_num <= 0:
+                aes_filter_max_num = sys.maxsize
+
+            fileinfos = wib_db.filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num)
+            filenames = [finfo[0] for finfo in fileinfos]   
+        if ranking_filter != "All":
+            fileinfos = wib_db.filter_ranking(cursor, fileinfos, ranking_filter)
+            filenames = [finfo[0] for finfo in fileinfos]
+        
+        wib_db.transaction_end(conn, cursor)
+    
     if sort_by == "date":
         if sort_order == up_symbol:
             fileinfos = sorted(fileinfos, key=lambda x: x[1].st_mtime)
@@ -972,6 +1012,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             maint_update_dirs_from = gr.Textbox(label="From (full path)")
         with gr.Column(scale=10):
             maint_update_dirs_to = gr.Textbox(label="to (full path)")
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=1):
+            maint_reapply_ranking = gr.Button(value="Reapply ranking after moving files")
+        with gr.Column(scale=10):
+            gr.HTML(visible=False)
     with gr.Row(visible=False): 
         with gr.Column(scale=1):
             maint_rebuild_ranking = gr.Button(value="Rebuild ranking from exif info")
@@ -1091,6 +1136,12 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         fn=exif_update_dirs,
         show_progress=True,
         inputs=[maint_update_dirs_from, maint_update_dirs_to, maint_wait],
+        outputs=[maint_wait, maint_last_msg]
+    )
+    maint_reapply_ranking.click(
+        fn=reapply_ranking,
+        show_progress=True,
+        inputs=[path_recorder, maint_wait],
         outputs=[maint_wait, maint_last_msg]
     )
 
@@ -1223,7 +1274,7 @@ def on_ui_settings():
         ("image_browser_logger_warning", "images_logger_warning", False, "Print warning logs to the console"),
         ("image_browser_logger_debug", "images_logger_debug", False, "Print debug logs to the console"),
         ("image_browser_delete_recycle", "images_delete_recycle", False, "Use recycle bin when deleting images"),
-        ("image_browser_scan_exif", "images_scan_exif", True, "Scan Exif-/.txt-data (slower, but required for exif-keyword-search)"),
+        ("image_browser_scan_exif", "images_scan_exif", True, "Scan Exif-/.txt-data (initially slower, but required for many features to work)"),
         ("image_browser_mod_shift", None, False, "Change CTRL keybindings to SHIFT"),
         ("image_browser_mod_ctrl_shift", None, False, "or to CTRL+SHIFT"),
         ("image_browser_enable_maint", None, True, "Enable Maintenance tab"),

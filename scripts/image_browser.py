@@ -278,36 +278,36 @@ def save_image(file_name, filenames, page_index, turn_page_switch, dest_path):
 def delete_image(delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch):
     if name == "":
         return filenames, delete_num
-    else:
-        delete_num = int(delete_num)
-        image_index = int(image_index)
-        visible_num = int(visible_num)
-        index = list(filenames).index(name)
-        new_file_list = []
-        if not delete_confirm:
-            delete_num = min(visible_num - image_index, delete_num)
 
-        if delete_num > 1:
-            # Force refresh page when done, no special js handling necessary
-            turn_page_switch = -turn_page_switch
-            delete_state = False
+    delete_num = int(delete_num)
+    image_index = int(image_index)
+    visible_num = int(visible_num)
+    index = list(filenames).index(name)
+    new_file_list = filenames[:index] + filenames[index + delete_num:]
+
+    if not delete_confirm:
+        delete_num = min(visible_num - image_index, delete_num)
+
+    if delete_num > 1:
+        # Force refresh page when done, no special js handling necessary
+        turn_page_switch = -turn_page_switch
+        delete_state = False
+    else:
+        delete_state = True
+
+    for i in range(index, index + delete_num):
+        if os.path.exists(filenames[i]):
+            if opts.image_browser_delete_message:
+                print(f"Deleting file {filenames[i]}")
+            delete_recycle(filenames[i])
+            visible_num -= 1
+            if opts.image_browser_txt_files:
+                txt_file = totxt(filenames[i])
+                if os.path.exists(txt_file):
+                    delete_recycle(txt_file)
         else:
-            delete_state = True
-        for i, name in enumerate(filenames):
-            if i >= index and i < index + delete_num:
-                if os.path.exists(name):
-                    if opts.image_browser_delete_message:
-                        print(f"Deleting file {name}")
-                    delete_recycle(name)
-                    visible_num -= 1
-                    if opts.image_browser_txt_files:
-                        txt_file = totxt(name)
-                        if os.path.exists(txt_file):
-                            delete_recycle(txt_file)
-                else:
-                    print(f"File does not exist {name}")
-            else:
-                new_file_list.append(name)
+            print(f"File does not exist {filenames[i]}")
+
     return new_file_list, 1, delete_state, turn_page_switch, visible_num
 
 def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) -> List[Tuple[str, os.stat_result, str, int]]:

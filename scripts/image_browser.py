@@ -63,6 +63,7 @@ copy_move = ["Move", "Copy"]
 copied_moved = ["Moved", "Copied"]
 np = "negative_prompt: "
 openoutpaint = False
+controlnet = False
 
 path_maps = {
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
@@ -825,7 +826,7 @@ def update_ranking(img_file_name, ranking, img_file_info):
     return img_file_info
             
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
-    global init, exif_cache, aes_cache, openoutpaint
+    global init, exif_cache, aes_cache, openoutpaint, controlnet
     dir_name = None
     others_dir = False
     maint = False
@@ -843,6 +844,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     
     path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
     openoutpaint = check_ext("openoutpaint")
+    controlnet = check_ext("controlnet")
 
     if tab.name == "Others":
         others_dir = True
@@ -947,6 +949,12 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         except:
                             pass
                         sendto_openoutpaint = gr.Button("Send to openOutpaint", elem_id=f"{tab.base_tag}_image_browser_openoutpaint_btn", visible=openoutpaint)
+                        gr.HTML("&nbsp")
+                        gr.HTML("&nbsp")
+                        sendto_controlnet_txt2img = gr.Button("Send to txt2img ControlNet", visible=controlnet)
+                        sendto_controlnet_img2img = gr.Button("Send to img2img ControlNet", visible=controlnet)
+                        controlnet_max = opts.data.get("control_net_max_models_num", 1)
+                        sendto_controlnet_num = gr.Dropdown(list(range(controlnet_max)), label="ControlNet number", value="0", interactive=True, visible=(controlnet and controlnet_max > 1))
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_to_dir_panel", visible=False) as to_dir_panel:
                         with gr.Box():
                             with gr.Row():
@@ -1185,6 +1193,18 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             inputs=[tab_base_tag_box, image_index, image_browser_prompt, image_browser_neg_prompt],
             outputs=[],
             _js="image_browser_openoutpaint_send"
+        )
+        sendto_controlnet_txt2img.click(
+            fn=None,
+            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
+            outputs=[],
+            _js="image_browser_controlnet_send_txt2img"
+        )
+        sendto_controlnet_img2img.click(
+            fn=None,
+            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
+            outputs=[],
+            _js="image_browser_controlnet_send_img2img"
         )
 
 def run_pnginfo(image, image_path, image_file_name):

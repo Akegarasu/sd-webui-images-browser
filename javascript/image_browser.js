@@ -93,7 +93,17 @@ function image_browser_turnpage(tab_base_tag) {
     });
 }
 
-async function image_browser_openoutpaint_get_image(tab_base_tag, image_index) {
+function image_browser_gototab(tabname, tabsId = "tabs") {
+	Array.from(
+		gradioApp().querySelectorAll(`#${tabsId} > div:first-child button`)
+	).forEach((button) => {
+		if (button.textContent.trim() === tabname) {
+			button.click();
+		}
+	});
+}
+
+async function image_browser_get_image_for_ext(tab_base_tag, image_index) {
     var image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery .gallery-item`)[image_index];
 
 	const canvas = document.createElement("canvas");
@@ -111,7 +121,7 @@ async function image_browser_openoutpaint_get_image(tab_base_tag, image_index) {
 }
 
 function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browser_prompt, image_browser_neg_prompt, name = "WebUI Resource") {
-    image_browser_openoutpaint_get_image(tab_base_tag, image_index)
+    image_browser_get_image_for_ext(tab_base_tag, image_index)
 		.then((dataURL) => {
 			// Send to openOutpaint
 			openoutpaint_send_image(dataURL, name);
@@ -129,8 +139,45 @@ function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browse
             });
 
 			// Change Tab
-			openoutpaint_gototab();
+            image_browser_gototab("openOutpaint");
 		})
+}
+
+async function image_browser_controlnet_send(toTab,tab_base_tag, image_index, controlnetNum) {
+    const dataURL = await image_browser_get_image_for_ext(tab_base_tag, image_index);
+    const blob = await (await fetch(dataURL)).blob();
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], "ImageBrowser.png", { type: blob.type }));
+    const container = gradioApp().querySelector(
+        toTab === "txt2img" ? "#txt2img_script_container" : "#img2img_script_container"
+    );
+    const accordion = container.querySelector("#controlnet .transition");
+    if (accordion.classList.contains("rotate-90")) accordion.click();
+
+    const tab = container.querySelectorAll(
+        "#controlnet > div:nth-child(2) > .tabs > .tabitem, #controlnet > div:nth-child(2) > div:not(.tabs)"
+    )[controlnetNum];
+    if (tab.classList.contains("tabitem"))
+        tab.parentElement.firstElementChild.querySelector(`:nth-child(${Number(controlnetNum) + 1})`).click();
+
+    const input = tab.querySelector("input[type='file']");
+    try {
+        input.previousElementSibling.previousElementSibling.querySelector("button[aria-label='Clear']").click();
+    } catch (e) {}
+
+    input.value = "";
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+
+    image_browser_gototab(toTab);
+};
+
+function image_browser_controlnet_send_txt2img(tab_base_tag, image_index, controlnetNum) {
+    image_browser_controlnet_send("txt2img", tab_base_tag, image_index, controlnetNum);
+}
+  
+function image_browser_controlnet_send_img2img(tab_base_tag, image_index, controlnetNum) {
+    image_browser_controlnet_send("img2img", tab_base_tag, image_index, controlnetNum);
 }
 
 function image_browser_init() {

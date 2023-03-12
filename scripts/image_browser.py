@@ -366,6 +366,9 @@ def cache_exif(fileinfos):
                 except UnidentifiedImageError as e:
                     allExif = False
                     logger.warning(f"UnidentifiedImageError: {e}")
+                except Image.DecompressionBombError as e:
+                    allExif = False
+                    logger.warning(f"DecompressionBombError: {e}: {fi_info[0]}")
                 except PermissionError as e:
                     allExif = False
                     logger.warning(f"PermissionError: {e}: {fi_info[0]}")

@@ -942,19 +942,20 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         gr.HTML("&nbsp")
                         gr.HTML("&nbsp")
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_button_panel", visible=False) as button_panel:
-                        if tab.name != favorite_tab_name:
-                            favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn")
-                        try:
-                            send_to_buttons = modules.generation_parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
-                        except:
-                            pass
-                        sendto_openoutpaint = gr.Button("Send to openOutpaint", elem_id=f"{tab.base_tag}_image_browser_openoutpaint_btn", visible=openoutpaint)
-                        gr.HTML("&nbsp")
-                        gr.HTML("&nbsp")
-                        sendto_controlnet_txt2img = gr.Button("Send to txt2img ControlNet", visible=controlnet)
-                        sendto_controlnet_img2img = gr.Button("Send to img2img ControlNet", visible=controlnet)
-                        controlnet_max = opts.data.get("control_net_max_models_num", 1)
-                        sendto_controlnet_num = gr.Dropdown(list(range(controlnet_max)), label="ControlNet number", value="0", interactive=True, visible=(controlnet and controlnet_max > 1))
+                        with gr.Column():
+                            with gr.Row():
+                                if tab.name != favorite_tab_name:
+                                    favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn")
+                                try:
+                                    send_to_buttons = modules.generation_parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
+                                except:
+                                    pass
+                                sendto_openoutpaint = gr.Button("Send to openOutpaint", elem_id=f"{tab.base_tag}_image_browser_openoutpaint_btn", visible=openoutpaint)
+                            with gr.Row(visible=controlnet):
+                                sendto_controlnet_txt2img = gr.Button("Send to txt2img ControlNet", visible=controlnet)
+                                sendto_controlnet_img2img = gr.Button("Send to img2img ControlNet", visible=controlnet)
+                                controlnet_max = opts.data.get("control_net_max_models_num", 1)
+                                sendto_controlnet_num = gr.Dropdown(list(range(controlnet_max)), label="ControlNet number", value="0", interactive=True, visible=(controlnet and controlnet_max > 1))
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_to_dir_panel", visible=False) as to_dir_panel:
                         with gr.Box():
                             with gr.Row():

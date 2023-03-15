@@ -762,11 +762,20 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
         turn_page_switch = -turn_page_switch
         file = None
         tm =  None
+        info = ""
     else:
-        file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
-        tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-        with Image.open(file) as image:
-            _, geninfo, info = modules.extras.run_pnginfo(image)
+        file_num = int(num) + int((page_index - 1) * num_of_imgs_per_page)
+        if file_num >= len(filenames):
+            # Last image to the right is deleted, page refresh
+            turn_page_switch = -turn_page_switch
+            file = None
+            tm =  None
+            info = ""
+        else:
+            file = filenames[file_num]
+            tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
+            with Image.open(file) as image:
+                _, geninfo, info = modules.extras.run_pnginfo(image)
     return file, tm, num, file, turn_page_switch, info
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):

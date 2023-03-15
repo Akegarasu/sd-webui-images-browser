@@ -62,28 +62,29 @@ function image_browser_get_current_img(tab_base_tag, img_index, page_index, file
 }
 
 function image_browser_delete(del_num, tab_base_tag, image_index) {
-    image_index = parseInt(image_index);
-    const tab = gradioApp().getElementById(tab_base_tag + '_image_browser');
-    const set_btn = tab.querySelector(".image_browser_set_index");
-    const gallery_items = Array.from(tab.querySelectorAll('.gallery-item')).filter(item => item.style.display !== 'none');
-    const img_num = gallery_items.length / 2;
-    del_num = Math.min(img_num - image_index, del_num)
-    if (img_num <= del_num) {
-        // If all images are deleted, we reload the browser page.
-        setTimeout(function(tab_base_tag) {
-            gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click();
-        }, 30, tab_base_tag);
-    } else {
-        // After deletion of the image, we have to navigate to the next image (or wraparound).
-        for (let i = 0; i < del_num; i++) {
-            gallery_items[image_index + i].style.display = 'none';
-            gallery_items[image_index + i + img_num].style.display = 'none';
+    setTimeout(function() {
+        image_index = parseInt(image_index);
+        const tab = gradioApp().getElementById(tab_base_tag + '_image_browser');
+        const set_btn = tab.querySelector(".image_browser_set_index");
+        const gallery_items = Array.from(tab.querySelectorAll('.gallery-item')).filter(item => item.style.display !== 'none');
+        const img_num = gallery_items.length / 2;
+        del_num = Math.min(img_num - image_index, del_num)
+        if (img_num <= del_num) {
+            // If all images are deleted, we reload the browser page.
+            setTimeout(function(tab_base_tag) {
+                gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click();
+            }, 30, tab_base_tag);
+        } else {
+            // After deletion of the image, we have to navigate to the next image (or wraparound).
+            for (let i = 0; i < del_num; i++) {
+                gallery_items[image_index + i].style.display = 'none';
+                gallery_items[image_index + i + img_num].style.display = 'none';
+            }
+            const next_img = gallery_items.find((elem, i) => elem.style.display !== 'none' && i > image_index);
+            const btn = next_img || gallery_items[image_index - 1];
+            setTimeout(function(btn){btn.click()}, 30, btn);
         }
-        const next_img = gallery_items.find((elem, i) => elem.style.display !== 'none' && i > image_index);
-        const btn = next_img || gallery_items[image_index - 1];
-        setTimeout(function(btn){btn.click()}, 30, btn);
-    }
-
+    }, 1000);
 }
 
 function image_browser_turnpage(tab_base_tag) {

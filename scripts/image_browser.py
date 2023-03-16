@@ -1,5 +1,6 @@
 import gradio as gr
 import csv
+import importlib
 import logging
 import os
 import platform
@@ -31,6 +32,10 @@ try:
 except ImportError:
     print("Image Browser: send2trash is not installed. recycle bin cannot be used.")
     send2trash_installed = False
+
+# Force reload wib_db, as it doesn't get reloaded otherwise, if an extension update is started from webui
+importlib.reload(wib_db)
+
 
 yappi_do = False
 favorite_tab_name = "Favorites"

@@ -1,7 +1,9 @@
 import gradio as gr
 import csv
 import importlib
+import json
 import logging
+import math
 import os
 import platform
 import random
@@ -12,6 +14,7 @@ import subprocess as sp
 import sys
 import tempfile
 import time
+import traceback
 import modules.extras
 import modules.images
 import modules.ui
@@ -35,7 +38,6 @@ except ImportError:
 
 # Force reload wib_db, as it doesn't get reloaded otherwise, if an extension update is started from webui
 importlib.reload(wib_db)
-
 
 yappi_do = False
 favorite_tab_name = "Favorites"
@@ -281,40 +283,52 @@ def save_image(file_name, filenames, page_index, turn_page_switch, dest_path):
 
     return message, filenames, page_index, turn_page_switch
 
-def delete_image(delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch):
-    if name == "":
-        return filenames, delete_num
-
+def delete_image(tab_base_tag_box, delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch, select_image_switch, image_page_list):
+    refresh = False
     delete_num = int(delete_num)
     image_index = int(image_index)
     visible_num = int(visible_num)
-    index = list(filenames).index(name)
-    new_file_list = filenames[:index] + filenames[index + delete_num:]
-
-    if not delete_confirm:
-        delete_num = min(visible_num - image_index, delete_num)
-
-    if delete_num > 1:
-        # Force refresh page when done, no special js handling necessary
-        turn_page_switch = -turn_page_switch
-        delete_state = False
+    image_page_list = json.loads(image_page_list)
+    new_file_list = []
+    new_image_page_list = []
+    if name == "":
+        refresh = True
     else:
-        delete_state = True
+        try:
+            index_files = list(filenames).index(name)
+            
+            index_on_page = image_page_list.index(name)
+        except ValueError as e:
+            print(traceback.format_exc(), file=sys.stderr)
+            # Something went wrong, force a page refresh
+            refresh = True
+    if not refresh:
+        if not delete_confirm:
+            delete_num = min(visible_num - index_on_page, delete_num)
+        new_file_list = filenames[:index_files] + filenames[index_files + delete_num:]
+        new_image_page_list = image_page_list[:index_on_page] + image_page_list[index_on_page + delete_num:]
 
-    for i in range(index, index + delete_num):
-        if os.path.exists(filenames[i]):
-            if opts.image_browser_delete_message:
-                print(f"Deleting file {filenames[i]}")
-            delete_recycle(filenames[i])
-            visible_num -= 1
-            if opts.image_browser_txt_files:
-                txt_file = totxt(filenames[i])
-                if os.path.exists(txt_file):
-                    delete_recycle(txt_file)
-        else:
-            print(f"File does not exist {filenames[i]}")
+        for i in range(index_files, index_files + delete_num):
+            if os.path.exists(filenames[i]):
+                if opts.image_browser_delete_message:
+                    print(f"Deleting file {filenames[i]}")
+                delete_recycle(filenames[i])
+                visible_num -= 1
+                if opts.image_browser_txt_files:
+                    txt_file = totxt(filenames[i])
+                    if os.path.exists(txt_file):
+                        delete_recycle(txt_file)
+            else:
+                print(f"File does not exist {filenames[i]}")
+                # If we reach this point (which we shouldn't), things are messed up, better force a page refresh
+                refresh = True
 
-    return new_file_list, 1, delete_state, turn_page_switch, visible_num
+    if refresh:
+        turn_page_switch = -turn_page_switch
+    else:
+        select_image_switch = -select_image_switch
+
+    return new_file_list, 1, turn_page_switch, visible_num, new_image_page_list, select_image_switch, json.dumps(new_image_page_list)
 
 def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) -> List[Tuple[str, os.stat_result, str, int]]:
     global current_depth
@@ -725,20 +739,19 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive, delete_state, hidden):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     if img_path == "":
-        return [], page_index, [],  "", "",  "", 0, "", delete_state, None
+        return [], page_index, [],  "", "",  "", 0, "", None, ""
 
     # Set temp_dir from webui settings, so gradio uses it
     if shared.opts.temp_dir != "":
         tempfile.tempdir = shared.opts.temp_dir
         
     img_path, _ = pure_path(img_path)
-    if page_index == 1 or page_index == 0 or len(filenames) == 0:
-        filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive)
+    filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive)
     page_index = int(page_index)
     length = len(filenames)
-    max_page_index = length // num_of_imgs_per_page + 1
+    max_page_index = math.ceil(length / num_of_imgs_per_page)
     page_index = max_page_index if page_index == -1 else page_index
     page_index = 1 if page_index < 1 else page_index
     page_index = max_page_index if page_index > max_page_index else page_index
@@ -752,8 +765,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info += f"{length} images in this directory, divided into {int((length + 1) // num_of_imgs_per_page  + 1)} pages"
     load_info += "</div>"
     
-    delete_state = False
-    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info, delete_state, None
+    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list)
 
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
@@ -842,7 +854,7 @@ def update_ranking(img_file_name, ranking, img_file_info):
             img_file_info = geninfo
     return img_file_info
             
-def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
+def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab, is_last):
     global init, exif_cache, aes_cache, openoutpaint, controlnet
     dir_name = None
     others_dir = False
@@ -921,7 +933,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         image_gallery = gr.Gallery(show_label=False, elem_id=f"{tab.base_tag}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
                     with gr.Row() as delete_panel:
                         with gr.Column(scale=1):
-                            delete_num = gr.Number(value=1, interactive=True, label="delete next")
+                            delete_num = gr.Number(value=1, interactive=True, label="delete next", elem_id=f"{tab.base_tag}_image_browser_del_num")
                             delete_confirm = gr.Checkbox(value=False, label="also delete off-screen images")
                         with gr.Column(scale=3):
                             delete = gr.Button('Delete', elem_id=f"{tab.base_tag}_image_browser_del_img_btn")
@@ -985,25 +997,23 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Row():
                         collected_warning = gr.HTML()
 
-
-                    # hidden items
-                    with gr.Row(visible=False): 
+                    with gr.Row(visible=False):
                         renew_page = gr.Button("Renew Page", elem_id=f"{tab.base_tag}_image_browser_renew_page")
                         visible_img_num = gr.Number()                     
                         tab_base_tag_box = gr.Textbox(tab.base_tag)
-                        image_index = gr.Textbox(value=-1)
+                        image_index = gr.Textbox(value=-1, elem_id=f"{tab.base_tag}_image_browser_image_index")
                         set_index = gr.Button('set_index', elem_id=f"{tab.base_tag}_image_browser_set_index")
                         filenames = gr.State([])
-                        all_images_list = gr.State()
                         hidden = gr.Image(type="pil")
+                        image_page_list = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_image_page_list")
                         info1 = gr.Textbox()
                         info2 = gr.Textbox()
                         load_switch = gr.Textbox(value="load_switch", label="load_switch")
                         to_dir_load_switch = gr.Textbox(value="to dir load_switch", label="to_dir_load_switch")
                         turn_page_switch = gr.Number(value=1, label="turn_page_switch")
+                        select_image_switch = gr.Number(value=1)
                         img_path_add = gr.Textbox(value="add")
                         img_path_remove = gr.Textbox(value="remove")
-                        delete_state = gr.Checkbox(value=False, elem_id=f"{tab.base_tag}_image_browser_delete_state")
                         favorites_path = gr.Textbox(value=opts.outdir_save)
                         mod_keys = ""
                         if opts.image_browser_mod_ctrl_shift:
@@ -1084,8 +1094,9 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth])
 
     #delete
-    delete.click(delete_image, inputs=[delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch], outputs=[filenames, delete_num, delete_state, turn_page_switch, visible_img_num])
-    delete.click(fn=None, _js="image_browser_delete", inputs=[delete_num, tab_base_tag_box, image_index], outputs=None) 
+    delete.click(delete_image, inputs=[tab_base_tag_box, delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch, select_image_switch, image_page_list], outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image_switch, image_page_list])
+    select_image_switch.change(fn=None, inputs=[tab_base_tag_box, image_index], outputs=None, _js="image_browser_select_image")
+
     if tab.name == favorite_tab_name:
         img_file_name.change(fn=update_move_text_one, inputs=[to_dir_btn], outputs=[to_dir_btn])
     else:
@@ -1112,8 +1123,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     turn_page_switch.change(
         fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive, delete_state], 
-        outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, delete_state, hidden]
+        inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
+        outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
     hide_on_thumbnail_view = [delete_panel, button_panel, ranking, to_dir_panel, info_add_panel]
@@ -1270,12 +1281,15 @@ def on_ui_tabs():
     loads_files_num = int(opts.image_browser_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as image_browser:
         with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
-            for tab in tabs_list:
+            for i, tab in enumerate(tabs_list):
                 with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
-                    with gr.Blocks(analytics_enabled=False) :
-                        create_tab(tab, current_gr_tab)
+                    with gr.Blocks(analytics_enabled=False):
+                        is_last = (i == len(tabs_list) - 1)
+                        create_tab(tab, current_gr_tab, is_last)
         gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
         gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
+        gr.Checkbox(value=True, elem_id="image_browser_gradio_loaded", visible=False)
+
     return (image_browser , "Image Browser", "image_browser"),
 
 def move_setting(cur_setting_name, old_setting_name, option_info, section, added):

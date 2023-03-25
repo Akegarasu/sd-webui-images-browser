@@ -1,12 +1,14 @@
 let state = "free"
 
-function delay(ms){return new Promise(resolve => setTimeout(resolve, ms))}
+onUiLoaded(image_browser_start)
 
-async function lock(reason) {
+function image_browser_delay(ms){return new Promise(resolve => setTimeout(resolve, ms))}
+
+async function image_browser_lock(reason) {
     // Wait until lock removed
     let i = 0
     while (state != "free") {
-        await delay(200)
+        await image_browser_delay(200)
         i = i + 1
         if (i === 150) {
             throw new Error("Still locked after 30 seconds. Please Reload UI.")
@@ -16,12 +18,12 @@ async function lock(reason) {
     state = reason
 }
 
-async function unlock() {
+async function image_browser_unlock() {
     state = "free"
 }
 
 const image_browser_click_image = async function() {
-    await lock("image_browser_click_image")
+    await image_browser_lock("image_browser_click_image")
     const gallery_items = image_browser_get_parent_by_tagname(this, "DIV").querySelectorAll(".gallery-item")
     const index = Array.from(gallery_items).indexOf(this)
     const gallery = image_browser_get_parent_by_class(this, "image_browser_container")
@@ -31,7 +33,7 @@ const image_browser_click_image = async function() {
         set_btn.setAttribute("img_index", index)
     }
     set_btn.click()
-    await unlock()
+    await image_browser_unlock()
 }
 
 function image_browser_get_parent_by_class(item, class_name) {
@@ -52,10 +54,10 @@ function image_browser_get_parent_by_tagname(item, tagname) {
 }
 
 async function image_browser_get_current_img(tab_base_tag, img_index, page_index, filenames, turn_page_switch) {
-    await lock("image_browser_get_current_img")
+    await image_browser_lock("image_browser_get_current_img")
     img_index = gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').getAttribute("img_index")
     gradioApp().dispatchEvent(new Event("image_browser_get_current_img"))
-    await unlock()
+    await image_browser_unlock()
     return [
         tab_base_tag,
         img_index,
@@ -66,7 +68,7 @@ async function image_browser_get_current_img(tab_base_tag, img_index, page_index
 }
 
 async function image_browser_select_image(tab_base_tag, img_index) {
-    await lock("image_browser_select_image")
+    await image_browser_lock("image_browser_select_image")
     const del_img_btn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
     del_img_btn.style.pointerEvents = "none"
     del_img_btn.style.cursor = "not-allowed"
@@ -81,7 +83,7 @@ async function image_browser_select_image(tab_base_tag, img_index) {
         const curr_image = gallery_items[img_index]
         curr_image.click()
     }
-    await unlock()
+    await image_browser_unlock()
 
     // Prevent delete button spam
     const image_browser_get_current_img_handler = () => {
@@ -94,12 +96,12 @@ async function image_browser_select_image(tab_base_tag, img_index) {
 }
 
 async function image_browser_turnpage(tab_base_tag) {
-    await lock("image_browser_turnpage")
+    await image_browser_lock("image_browser_turnpage")
     const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(".gallery-item")
     gallery_items.forEach(function(elem) {
         elem.style.display = 'block'
     })
-    await unlock()
+    await image_browser_unlock()
 }
 
 function image_browser_gototab(tabname, tabsId = "tabs") {
@@ -224,21 +226,13 @@ function image_browser_init() {
              setTimeout(function(){tab_btns[0].click()}, 100)
         }
     }
+    image_browser_keydown()
 }
-
-async function waitForGradio(){ 
-    await delay(100)
-    while (!gradioApp().getElementById("image_browser_gradio_loaded")) {
-        await delay(200)
-    }
-    image_browser_start()
-}
-document.addEventListener("DOMContentLoaded", async function() {await waitForGradio()})
 
 async function image_browser_wait_for_gallery_btn(tab_base_tag){ 
-    await delay(100)
+    await image_browser_delay(100)
     while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')) {
-        await delay(200)
+        await image_browser_delay(200)
     }
 }
 
@@ -302,84 +296,86 @@ function image_browser_active() {
     return ext_active && ext_active.style.display !== "none"
 }
 
-gradioApp().addEventListener("keydown", function(event) {
-    // If we are not on the Image Browser Extension, dont listen for keypresses
-    if (!image_browser_active()) {
-        return
-    }
-
-    // If the user is typing in an input field, dont listen for keypresses
-    let target
-    if (!event.composed) { // We shouldn't get here as the Shadow DOM is always active, but just in case
-        target = event.target
-    } else {
-        target = event.composedPath()[0]
-    }
-    if (!target || target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
-      return
-    }
-
-    const tab_base_tag = image_browser_current_tab()
-
-    // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)
-    if (event.code >= "Digit0" && event.code <= "Digit5") {
-        const selectedValue = event.code.charAt(event.code.length - 1)
-        const radioInputs = gradioApp().getElementById(tab_base_tag + "_image_browser_ranking").getElementsByTagName("input")
-        for (const input of radioInputs) {
-            if (input.value === selectedValue || (selectedValue === '0' && input === radioInputs[radioInputs.length - 1])) {
-                input.checked = true
-                input.dispatchEvent(new Event("change"))
-                break
-            }
-        }
-    }
-
-    const mod_keys = gradioApp().querySelector(`#${tab_base_tag}_image_browser_mod_keys textarea`).value
-    let modifiers_pressed = false
-    if (mod_keys.indexOf("C") !== -1 && mod_keys.indexOf("S") !== -1) {
-        if (event.ctrlKey && event.shiftKey) {
-            modifiers_pressed = true
-        }
-    } else if (mod_keys.indexOf("S") !== -1) {
-        if (!event.ctrlKey && event.shiftKey) {
-            modifiers_pressed = true
-        }
-    } else {
-        if (event.ctrlKey && !event.shiftKey) {
-            modifiers_pressed = true
-        }
-    }
-
-    let modifiers_none = false
-    if (!event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
-        modifiers_none = true
-    }
-
-    if (event.code == "KeyF" && modifiers_none) {
-        if (tab_base_tag == "image_browser_tab_favorites") {
+function image_browser_keydown() {
+    gradioApp().addEventListener("keydown", function(event) {
+        // If we are not on the Image Browser Extension, dont listen for keypresses
+        if (!image_browser_active()) {
             return
         }
-        const favoriteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_favorites_btn")
-        favoriteBtn.dispatchEvent(new Event("click"))
-    }
 
-    if (event.code == "KeyR" && modifiers_none) {
-        const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page")
-        refreshBtn.dispatchEvent(new Event("click"))
-    }
+        // If the user is typing in an input field, dont listen for keypresses
+        let target
+        if (!event.composed) { // We shouldn't get here as the Shadow DOM is always active, but just in case
+            target = event.target
+        } else {
+            target = event.composedPath()[0]
+        }
+        if (!target || target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
+        return
+        }
 
-    if (event.code == "Delete" && modifiers_none) {
-        const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
-        deleteBtn.dispatchEvent(new Event("click"))
-    }
+        const tab_base_tag = image_browser_current_tab()
 
-    if (event.code == "ArrowLeft" && modifiers_pressed) {
-        const prevBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_prev_page")
-        prevBtn.dispatchEvent(new Event("click"))
-    }
+        // Listens for keypresses 0-5 and updates the corresponding ranking (0 is the last option, None)
+        if (event.code >= "Digit0" && event.code <= "Digit5") {
+            const selectedValue = event.code.charAt(event.code.length - 1)
+            const radioInputs = gradioApp().getElementById(tab_base_tag + "_image_browser_ranking").getElementsByTagName("input")
+            for (const input of radioInputs) {
+                if (input.value === selectedValue || (selectedValue === '0' && input === radioInputs[radioInputs.length - 1])) {
+                    input.checked = true
+                    input.dispatchEvent(new Event("change"))
+                    break
+                }
+            }
+        }
 
-    if (event.code == "ArrowRight" && modifiers_pressed) {
-        const nextBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_next_page")
-        nextBtn.dispatchEvent(new Event("click"))
-    }
-})
+        const mod_keys = gradioApp().querySelector(`#${tab_base_tag}_image_browser_mod_keys textarea`).value
+        let modifiers_pressed = false
+        if (mod_keys.indexOf("C") !== -1 && mod_keys.indexOf("S") !== -1) {
+            if (event.ctrlKey && event.shiftKey) {
+                modifiers_pressed = true
+            }
+        } else if (mod_keys.indexOf("S") !== -1) {
+            if (!event.ctrlKey && event.shiftKey) {
+                modifiers_pressed = true
+            }
+        } else {
+            if (event.ctrlKey && !event.shiftKey) {
+                modifiers_pressed = true
+            }
+        }
+
+        let modifiers_none = false
+        if (!event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+            modifiers_none = true
+        }
+
+        if (event.code == "KeyF" && modifiers_none) {
+            if (tab_base_tag == "image_browser_tab_favorites") {
+                return
+            }
+            const favoriteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_favorites_btn")
+            favoriteBtn.dispatchEvent(new Event("click"))
+        }
+
+        if (event.code == "KeyR" && modifiers_none) {
+            const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page")
+            refreshBtn.dispatchEvent(new Event("click"))
+        }
+
+        if (event.code == "Delete" && modifiers_none) {
+            const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
+            deleteBtn.dispatchEvent(new Event("click"))
+        }
+
+        if (event.code == "ArrowLeft" && modifiers_pressed) {
+            const prevBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_prev_page")
+            prevBtn.dispatchEvent(new Event("click"))
+        }
+
+        if (event.code == "ArrowRight" && modifiers_pressed) {
+            const nextBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_next_page")
+            nextBtn.dispatchEvent(new Event("click"))
+        }
+    })
+}

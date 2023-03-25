@@ -1,4 +1,6 @@
 let state = "free"
+let oldGradio
+let galleryItemName
 
 onUiLoaded(image_browser_start)
 
@@ -22,9 +24,19 @@ async function image_browser_unlock() {
     state = "free"
 }
 
+function isVersionSmaller(version1, version2) {
+    let v1 = version1.split('.').map(Number)
+    let v2 = version2.split('.').map(Number)
+    for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
+        if ((v1[i] || 0) < (v2[i] || 0)) return true
+        if ((v1[i] || 0) > (v2[i] || 0)) return false
+    }
+    return false
+}
+
 const image_browser_click_image = async function() {
     await image_browser_lock("image_browser_click_image")
-    const gallery_items = image_browser_get_parent_by_tagname(this, "DIV").querySelectorAll(".gallery-item")
+    const gallery_items = image_browser_get_parent_by_tagname(this, "DIV").querySelectorAll(galleryItemNameDot)
     const index = Array.from(gallery_items).indexOf(this)
     const gallery = image_browser_get_parent_by_class(this, "image_browser_container")
     const set_btn = gallery.querySelector(".image_browser_set_index")
@@ -75,7 +87,7 @@ async function image_browser_select_image(tab_base_tag, img_index) {
     del_img_btn.style.opacity = "0.65"        
 
     const gallery = gradioApp().getElementById(tab_base_tag + "_image_browser_gallery")
-    const gallery_items = gallery.querySelectorAll(".gallery-item")
+    const gallery_items = gallery.querySelectorAll(galleryItemNameDot)
     if (img_index >= gallery_items.length || gallery_items.length == 0) {
         const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page")
         refreshBtn.dispatchEvent(new Event("click"))
@@ -97,7 +109,7 @@ async function image_browser_select_image(tab_base_tag, img_index) {
 
 async function image_browser_turnpage(tab_base_tag) {
     await image_browser_lock("image_browser_turnpage")
-    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(".gallery-item")
+    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(galleryItemNameDot)
     gallery_items.forEach(function(elem) {
         elem.style.display = 'block'
     })
@@ -115,7 +127,7 @@ function image_browser_gototab(tabname, tabsId = "tabs") {
 }
 
 async function image_browser_get_image_for_ext(tab_base_tag, image_index) {
-    const image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery .gallery-item`)[image_index]
+    const image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery ${galleryItemNameDot}`)[image_index]
 
 	const canvas = document.createElement("canvas")
 	const image = document.createElement("img")
@@ -198,7 +210,25 @@ function image_browser_class_add(tab_base_tag) {
     gradioApp().getElementById(tab_base_tag + '_image_browser_gallery').classList.add("image_browser_gallery")
 }
 
+function btnClickHandler(tab_base_tag, btn) {
+    const tabs_box = gradioApp().getElementById("image_browser_tabs_container")
+    if (!tabs_box.classList.contains(tab_base_tag)) {
+        gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page").click()
+        tabs_box.classList.add(tab_base_tag)
+    }
+}
+
 function image_browser_init() {
+    const GradioVersion = gradioApp().getElementById("image_browser_gradio_version").querySelector("textarea").value
+    if (isVersionSmaller(GradioVersion, "3.17")) {
+        oldGradio = true
+        galleryItemName = "gallery-item"
+    } else {
+        oldGradio = false
+        galleryItemName = "thumbnail-item"
+    }    
+    galleryItemNameDot = "." + galleryItemName
+    
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
     if (tab_base_tags) {
         const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",")
@@ -210,15 +240,8 @@ function image_browser_init() {
         tab_btns.forEach(function(btn, i) {
             const tab_base_tag = image_browser_tab_base_tags_list[i]
             btn.setAttribute("tab_base_tag", tab_base_tag)
-            btn.removeEventListener('click', btnClickHandler)
-            btn.addEventListener('click', btnClickHandler)
-            function btnClickHandler() {
-                const tabs_box = gradioApp().getElementById("image_browser_tabs_container")
-                if (!tabs_box.classList.contains(this.getAttribute("tab_base_tag"))) {
-                    gradioApp().getElementById(this.getAttribute("tab_base_tag") + "_image_browser_renew_page").click()
-                    tabs_box.classList.add(this.getAttribute("tab_base_tag"))
-                }
-            }
+            btn.removeEventListener('click', () => btnClickHandler(tab_base_tag, btn))
+            btn.addEventListener('click', () => btnClickHandler(tab_base_tag, btn))
         })
         
         //preload
@@ -231,9 +254,13 @@ function image_browser_init() {
 
 async function image_browser_wait_for_gallery_btn(tab_base_tag){ 
     await image_browser_delay(100)
-    while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')) {
+    while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName(galleryItemName)) {
         await image_browser_delay(200)
     }
+}
+
+function image_browser_renew_page(tab_base_tag) {
+    gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click()
 }
 
 function image_browser_start() {
@@ -244,7 +271,7 @@ function image_browser_start() {
             const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",")
             image_browser_tab_base_tags_list.forEach(function(tab_base_tag) {
                 image_browser_class_add(tab_base_tag)
-                const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser .gallery-item')
+                const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser ' + galleryItemNameDot)
                 tab_gallery_items.forEach(function(gallery_item) {
                     gallery_item.removeEventListener('click', image_browser_click_image, true)
                     gallery_item.addEventListener('click', image_browser_click_image, true)
@@ -254,7 +281,12 @@ function image_browser_start() {
                         }
                         const current_tab = image_browser_current_tab()
                         image_browser_wait_for_gallery_btn(current_tab).then(() => {
-                            let gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").getElementsByClassName('gallery-item !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')
+                            let gallery_btn
+                            if (oldGradio) {
+                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").getElementsByClassName(galleryItemName + ' !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')
+                            } else {
+                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").querySelector(galleryItemNameDot + ' .selected')
+                            }
                             gallery_btn = gallery_btn && gallery_btn.length > 0 ? gallery_btn[0] : null
                             if (gallery_btn) {
                                 image_browser_click_image.call(gallery_btn)
@@ -265,12 +297,8 @@ function image_browser_start() {
 
                 const cls_btn = gradioApp().getElementById(tab_base_tag + '_image_browser_gallery').querySelector("svg")
                 if (cls_btn) {
-                    function image_browser_renew_page() {
-                        gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click()
-                    }
-
-                    cls_btn.removeEventListener('click', image_browser_renew_page, false)
-                    cls_btn.addEventListener('click', image_browser_renew_page, false)
+                    cls_btn.removeEventListener('click', () => image_browser_renew_page(tab_base_tag), false)
+                    cls_btn.addEventListener('click', () => image_browser_renew_page(tab_base_tag), false)
                 }
             })
         }

@@ -1288,6 +1288,7 @@ def on_ui_tabs():
                         create_tab(tab, current_gr_tab, is_last)
         gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
         gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
+        gr.Textbox(value=gr.__version__, elem_id="image_browser_gradio_version", visible=False)
 
     return (image_browser , "Image Browser", "image_browser"),
 

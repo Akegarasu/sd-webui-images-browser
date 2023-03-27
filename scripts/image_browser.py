@@ -921,12 +921,18 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab, is_last):
             with gr.Row():    
                 with gr.Column(scale=2):    
                     with gr.Row() as gallery_controls_panel:
-                        first_page = gr.Button('First Page')
-                        prev_page = gr.Button('Prev Page', elem_id=f"{tab.base_tag}_image_browser_prev_page")
-                        page_index = gr.Number(value=1, label="Page Index")
-                        refresh_index_button = ToolButton(value=refresh_symbol)
-                        next_page = gr.Button('Next Page', elem_id=f"{tab.base_tag}_image_browser_next_page")
-                        end_page = gr.Button('End Page') 
+                        with gr.Column(scale=2, min_width=20):
+                            first_page = gr.Button('First Page')
+                        with gr.Column(scale=2, min_width=20):
+                            prev_page = gr.Button('Prev Page', elem_id=f"{tab.base_tag}_image_browser_prev_page")
+                        with gr.Column(scale=2, min_width=20):
+                            page_index = gr.Number(value=1, label="Page Index")
+                        with gr.Column(scale=1, min_width=20):
+                            refresh_index_button = ToolButton(value=refresh_symbol)
+                        with gr.Column(scale=2, min_width=20):
+                            next_page = gr.Button('Next Page', elem_id=f"{tab.base_tag}_image_browser_next_page")
+                        with gr.Column(scale=2, min_width=20):
+                            end_page = gr.Button('End Page') 
                     with gr.Row() as ranking_panel:
                         ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tab.base_tag}_image_browser_ranking", interactive=True, visible=False)
                     with gr.Row():

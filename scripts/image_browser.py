@@ -22,12 +22,17 @@ from modules import paths, shared, script_callbacks, scripts, images
 from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton, DropdownMulti
-from scripts.wib import wib_db
 from PIL import Image, UnidentifiedImageError
 from pathlib import Path
 from typing import List, Tuple
 from itertools import chain
 from io import StringIO
+
+try:
+    from scripts.wib import wib_db
+except ModuleNotFoundError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts")))
+    from wib import wib_db
 
 try:
     from send2trash import send2trash
@@ -920,7 +925,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab, is_last):
         with gr.Column():  
             with gr.Row():    
                 with gr.Column(scale=2):    
-                    with gr.Row() as gallery_controls_panel:
+                    with gr.Row(elem_id=f"{tab.base_tag}_image_browser_gallery_controls") as gallery_controls_panel:
                         with gr.Column(scale=2, min_width=20):
                             first_page = gr.Button('First Page')
                         with gr.Column(scale=2, min_width=20):

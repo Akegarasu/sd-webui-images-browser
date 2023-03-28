@@ -863,7 +863,7 @@ def update_ranking(img_file_name, ranking, img_file_info):
             img_file_info = geninfo
     return img_file_info
             
-def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab, is_last):
+def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     global init, exif_cache, aes_cache, openoutpaint, controlnet
     dir_name = None
     others_dir = False
@@ -1254,17 +1254,21 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab, is_last):
 def run_pnginfo(image, image_path, image_file_name):
     if image is None:
         return '', '', '', '', ''
-    geninfo, items = images.read_info_from_image(image)
-    items = {**{'parameters': geninfo}, **items}
+    try:
+        geninfo, items = images.read_info_from_image(image)
+        items = {**{'parameters': geninfo}, **items}
 
-    info = ''
-    for key, text in items.items():
-        info += f"""
-<div>
-<p><b>{plaintext_to_html(str(key))}</b></p>
-<p>{plaintext_to_html(str(text))}</p>
-</div>
-""".strip()+"\n"
+        info = ''
+        for key, text in items.items():
+            info += f"""
+                <div>
+                <p><b>{plaintext_to_html(str(key))}</b></p>
+                <p>{plaintext_to_html(str(text))}</p>
+                </div>
+                """.strip()+"\n"
+    except UnidentifiedImageError as e:
+        geninfo = None
+        info = ""
     
     if geninfo is None:
         try:
@@ -1299,8 +1303,7 @@ def on_ui_tabs():
             for i, tab in enumerate(tabs_list):
                 with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
                     with gr.Blocks(analytics_enabled=False):
-                        is_last = (i == len(tabs_list) - 1)
-                        create_tab(tab, current_gr_tab, is_last)
+                        create_tab(tab, current_gr_tab)
         gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
         gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
         gr.Textbox(value=gr.__version__, elem_id="image_browser_gradio_version", visible=False)

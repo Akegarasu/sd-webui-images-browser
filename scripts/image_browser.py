@@ -796,8 +796,12 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
         else:
             file = filenames[file_num]
             tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-            with Image.open(file) as image:
-                _, geninfo, info = modules.extras.run_pnginfo(image)
+            try:
+                with Image.open(file) as image:
+                    _, geninfo, info = modules.extras.run_pnginfo(image)
+            except UnidentifiedImageError as e:
+                info = ""
+                logger.warning(f"UnidentifiedImageError: {e}")
     return file, tm, num, file, turn_page_switch, info
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):

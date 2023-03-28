@@ -58,7 +58,7 @@ components_list = ["Sort by", "Filename keyword search", "EXIF keyword search", 
 
 num_of_imgs_per_page = 0
 loads_files_num = 0
-image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]
+image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".svg"]
 finfo_aes = {}
 exif_cache = {}
 finfo_exif = {}

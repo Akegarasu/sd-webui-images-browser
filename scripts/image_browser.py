@@ -1229,7 +1229,6 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
    
-    # hidden.change(fn=lambda h:h,_js="update_preivew_state",inputs=[hidden], outputs=None)
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
     
     #ranking

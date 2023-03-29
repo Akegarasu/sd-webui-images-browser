@@ -65,18 +65,66 @@ function image_browser_get_parent_by_tagname(item, tagname) {
     return parent
 }
 
-async function image_browser_get_current_img(tab_base_tag, img_index, page_index, filenames, turn_page_switch) {
+function image_browser_run_after_preview_load(tab_base_tag, func) {
+    ob = new MutationObserver(async (mutationList, observer) => {
+        elem = mutationList[0].target
+        if (elem.classList.contains("hide")) { 
+            func()
+            observer.disconnect()
+        }
+    })
+    ob.observe(
+        gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery .svelte-gjihhp`)[0],
+        { attributes: true }
+    )
+}
+
+async function image_browser_get_current_img(tab_base_tag, img_index, page_index, filenames, turn_page_switch, image_gallery) {
     await image_browser_lock("image_browser_get_current_img")
     img_index = gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').getAttribute("img_index")
+    image_browser_hide_loading_animation(true)
     gradioApp().dispatchEvent(new Event("image_browser_get_current_img"))
+    image_browser_run_after_preview_load(tab_base_tag,() => image_browser_hide_loading_animation(false))
     await image_browser_unlock()
     return [
         tab_base_tag,
         img_index,
         page_index,
 		filenames,
-		turn_page_switch
+        turn_page_switch,
+        image_gallery
     ]
+}
+
+function image_browser_hide_loading_animation(hidden) {
+    if (hidden === true) {
+        gradioApp().querySelectorAll("div[id^='image_browser_tab'][id$='image_browser_gallery']:not(.hide_loading)").forEach((elem) => {
+            elem.classList.add("hide_loading")
+        })
+    } else { 
+        gradioApp().querySelectorAll("div[id^='image_browser_tab'][id$='image_browser_gallery'].hide_loading").forEach((elem) => {
+            elem.classList.remove("hide_loading")
+        })
+    }
+}
+
+async function image_browser_refresh_preview(tab_base_tag) { 
+    // Close preview first
+    await image_browser_delay(500)
+    const close_btn = gradioApp().querySelector('.preview button:not(.thumbnail-item)')
+    if (close_btn === null) { 
+        return
+    }
+    close_btn.click()
+    // Open preview again
+    const gallery = gradioApp().querySelector(`#${tab_base_tag}_image_browser`)
+    const set_btn = gallery.querySelector(".image_browser_set_index")
+    const curr_idx = set_btn.getAttribute("img_index")
+    image_browser_run_after_preview_load(tab_base_tag, () => { 
+        const gallery_items = gallery.querySelectorAll(galleryItemNameDot)
+        const curr_image = gallery_items[curr_idx]
+        curr_image.click()
+    })
 }
 
 async function image_browser_select_image(tab_base_tag, img_index) {

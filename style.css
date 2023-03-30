@@ -1,3 +1,7 @@
 .thumbnails.svelte-1tkea93.svelte-1tkea93 {
   justify-content: initial;
 }
+
+div[id^="image_browser_tab"][id$="image_browser_gallery"].hide_loading > .svelte-gjihhp {
+  display: none;
+}

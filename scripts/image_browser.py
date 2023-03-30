@@ -744,6 +744,25 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             filenames = [finfo for finfo in fileinfos]
     return filenames
 
+def get_image_thumbnail(image_list):
+    thumbnail_list = []
+    for image_path in image_list:
+        try:
+            image = Image.open(image_path)
+            width, height = image.size
+            left = (width - min(width, height)) / 2
+            top = (height - min(width, height)) / 2
+            right = (width + min(width, height)) / 2
+            bottom = (height + min(width, height)) / 2
+            thumbnail = image.crop((left, top, right, bottom))
+            thumbnail.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
+        except OSError:
+            # If PIL cannot open the image, use the original path
+            thumbnail_list.append(image_path)
+        else:
+            thumbnail_list.append(thumbnail)
+    return thumbnail_list
+
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", None, ""
@@ -762,7 +781,12 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     page_index = max_page_index if page_index > max_page_index else page_index
     idx_frm = (page_index - 1) * num_of_imgs_per_page
     image_list = filenames[idx_frm:idx_frm + num_of_imgs_per_page]
-    
+
+    if opts.image_browser_use_thumbnail:
+        thumbnail_list = get_image_thumbnail(image_list)
+    else:
+        thumbnail_list = image_list
+
     visible_num = num_of_imgs_per_page if  idx_frm + num_of_imgs_per_page < length else length % num_of_imgs_per_page 
     visible_num = num_of_imgs_per_page if visible_num == 0 else visible_num
 
@@ -770,13 +794,13 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info += f"{length} images in this directory, divided into {int((length + 1) // num_of_imgs_per_page  + 1)} pages"
     load_info += "</div>"
     
-    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), image_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list)
+    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), thumbnail_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list)
 
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
     return file
     
-def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_switch):
+def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_switch, image_gallery):
     logger.debug(f"tab_base_tag_box, num, page_index, len(filenames), num_of_imgs_per_page: {tab_base_tag_box}, {num}, {page_index}, {len(filenames)}, {num_of_imgs_per_page}")
     if len(filenames) == 0:
         # This should only happen if webui was stopped and started again and the user clicks on one of the still displayed images.
@@ -802,7 +826,12 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
             except UnidentifiedImageError as e:
                 info = ""
                 logger.warning(f"UnidentifiedImageError: {e}")
-    return file, tm, num, file, turn_page_switch, info
+            if opts.image_browser_use_thumbnail:
+                image_gallery = [image['name'] for image in image_gallery]
+                image_gallery[int(num)] = filenames[file_num]
+            else:
+                image_gallery = gr.update()
+    return file, tm, num, file, turn_page_switch, info, image_gallery
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):
     warning = None
@@ -1118,12 +1147,18 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
         img_file_name.change(fn=update_move_text, inputs=[favorites_btn, to_dir_btn], outputs=[favorites_btn, to_dir_btn])
     to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-
+    #refresh preview when page is updated
+    for btn in (first_page, next_page, prev_page, end_page, refresh_index_button, sort_order, ):
+        btn.click(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+    for component in (sort_by, ranking_filter):
+        component.change(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+    for component in (filename_keyword_search, exif_keyword_search, aes_filter_min, aes_filter_max, page_index):
+        component.submit(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
     #turn page
     first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
     prev_page.click(lambda p, s: (p - 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
-    end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])    
+    end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     filename_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     exif_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
@@ -1198,11 +1233,10 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     )
 
     # other functions
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add])
+    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery])
     set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
     img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
-
    
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
     
@@ -1352,6 +1386,8 @@ def on_ui_settings():
         ("image_browser_page_columns", "images_history_page_columns", 6, "Number of columns on the page"),
         ("image_browser_page_rows", "images_history_page_rows", 6, "Number of rows on the page"),
         ("image_browser_pages_perload", "images_history_pages_perload", 20, "Minimum number of pages per load"),
+        ("image_browser_use_thumbnail", None, False, "Use optimized images in the thumbnail interface (significantly reduces the amount of data transferred)"),
+        ("image_browser_thumbnail_size", None, 200, "Size of the thumbnails (px)"),
     ]
 
     section = ('image-browser', "Image Browser")

@@ -368,7 +368,7 @@ function image_browser_start() {
 function image_browser_current_tab() {
     const tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]')
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
-    const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",")
+    const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",").sort((a, b) => b.length - a.length);
     for (const element of tabs) {
       if (element.style.display === "block") {
         const id = element.id

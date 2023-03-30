@@ -757,6 +757,7 @@ def get_image_thumbnail(image_list):
             thumbnail = image.crop((left, top, right, bottom))
             thumbnail.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
         except OSError:
+            # If PIL cannot open the image, use the original path
             thumbnail_list.append(image_path)
         else:
             thumbnail_list.append(thumbnail)
@@ -1146,9 +1147,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
         img_file_name.change(fn=update_move_text, inputs=[favorites_btn, to_dir_btn], outputs=[favorites_btn, to_dir_btn])
     to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-    #refresh preview when turning page
-    for btn in (first_page, next_page, prev_page, end_page):
-        btn.click(None,_js="image_browser_refresh_preview", inputs=[tab_base_tag_box], outputs=None)
+    #refresh preview when page is updated
+    for btn in (first_page, next_page, prev_page, end_page, refresh_index_button, sort_order, ):
+        btn.click(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+    for component in (sort_by, ranking_filter):
+        component.change(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+    for component in (filename_keyword_search, exif_keyword_search, aes_filter_min, aes_filter_max, page_index):
+        component.submit(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
     #turn page
     first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])

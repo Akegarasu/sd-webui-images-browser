@@ -1386,7 +1386,7 @@ def on_ui_settings():
         ("image_browser_page_columns", "images_history_page_columns", 6, "Number of columns on the page"),
         ("image_browser_page_rows", "images_history_page_rows", 6, "Number of rows on the page"),
         ("image_browser_pages_perload", "images_history_pages_perload", 20, "Minimum number of pages per load"),
-        ("image_browser_use_thumbnail", None, True, "Use optimized images in the thumbnail interface"),
+        ("image_browser_use_thumbnail", None, False, "Use optimized images in the thumbnail interface (significantly reduces the amount of data transferred)"),
         ("image_browser_thumbnail_size", None, 200, "Size of the thumbnails (px)"),
     ]
 

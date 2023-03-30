@@ -747,15 +747,19 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
 def get_image_thumbnail(image_list):
     thumbnail_list = []
     for image_path in image_list:
-        image = Image.open(image_path)
-        width, height = image.size
-        left = (width - min(width, height)) / 2
-        top = (height - min(width, height)) / 2
-        right = (width + min(width, height)) / 2
-        bottom = (height + min(width, height)) / 2
-        image = image.crop((left, top, right, bottom))
-        image.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
-        thumbnail_list.append(image)
+        try:
+            image = Image.open(image_path)
+            width, height = image.size
+            left = (width - min(width, height)) / 2
+            top = (height - min(width, height)) / 2
+            right = (width + min(width, height)) / 2
+            bottom = (height + min(width, height)) / 2
+            thumbnail = image.crop((left, top, right, bottom))
+            thumbnail.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
+        except OSError:
+            thumbnail_list.append(image_path)
+        else:
+            thumbnail_list.append(thumbnail)
     return thumbnail_list
 
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):

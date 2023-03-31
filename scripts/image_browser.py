@@ -710,7 +710,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     elif sort_by == "ranking":
         finfo_ranked = {}
         for fi_info in fileinfos:
-            finfo_ranked[fi_info[0]] = get_ranking(fi_info[0])
+            finfo_ranked[fi_info[0]], _ = get_ranking(fi_info[0])
         if not down_symbol:
             fileinfos = dict(sorted(finfo_ranked.items(), key=lambda x: (x[1], x[0])))
         else:
@@ -866,10 +866,14 @@ def update_move_text(favorites_btn, to_dir_btn):
 
 def get_ranking(filename):
     ranking_value = wib_db.select_ranking(filename)
-    return ranking_value
+    return ranking_value, None
 
-def update_ranking(img_file_name, ranking, img_file_info):
-    saved_ranking = get_ranking(img_file_name)
+def update_ranking(img_file_name, ranking_current, ranking, img_file_info):
+    # ranking = None is different than ranking = "None"! None means no radio button selected. "None" means radio button called "None" selected.
+    if ranking is None:
+        return ranking_current, None, img_file_info
+
+    saved_ranking, _ = get_ranking(img_file_name)
     if saved_ranking != ranking:
         # Update db
         wib_db.update_ranking(img_file_name, ranking)
@@ -890,7 +894,7 @@ def update_ranking(img_file_name, ranking, img_file_info):
             images.save_image(image, os.path.dirname(img_file_name), "", extension=os.path.splitext(img_file_name)[1][1:], info=geninfo, forced_filename=os.path.splitext(os.path.basename(img_file_name))[0], save_to_dirs=False)
             os.utime(img_file_name, (original_time, original_time))
             img_file_info = geninfo
-    return img_file_info
+    return ranking, None, img_file_info
             
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     global init, exif_cache, aes_cache, openoutpaint, controlnet
@@ -971,8 +975,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                             next_page = gr.Button('Next Page', elem_id=f"{tab.base_tag}_image_browser_next_page")
                         with gr.Column(scale=2, min_width=20):
                             end_page = gr.Button('End Page') 
-                    with gr.Row() as ranking_panel:
-                        ranking = gr.Radio(value="None", choices=["1", "2", "3", "4", "5", "None"], label="ranking", elem_id=f"{tab.base_tag}_image_browser_ranking", interactive=True, visible=False)
+                    with gr.Row(visible=False) as ranking_panel:
+                        with gr.Column(scale=1, min_width=20):
+                            ranking_current = gr.Textbox(value="None", label="Current ranking", interactive=False)
+                        with gr.Column(scale=4, min_width=20):
+                            ranking = gr.Radio(choices=["1", "2", "3", "4", "5", "None"], label="Set ranking to", elem_id=f"{tab.base_tag}_image_browser_ranking", interactive=True)
                     with gr.Row():
                         image_gallery = gr.Gallery(show_label=False, elem_id=f"{tab.base_tag}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
                     with gr.Row() as delete_panel:
@@ -1004,7 +1011,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         aes_filter_min = gr.Textbox(value="", label="Minimum aesthetic_score")
                         aes_filter_max = gr.Textbox(value="", label="Maximum aesthetic_score")
                     with gr.Row() as generation_info_panel:
-                        img_file_info = gr.Textbox(label="Generation Info", interactive=False, lines=6)
+                        img_file_info = gr.Textbox(label="Generation Info", interactive=False, lines=6,elem_id=f"{tab.base_tag}_image_browser_file_info")
                     with gr.Row() as filename_panel:
                         img_file_name = gr.Textbox(value="", label="File Name", interactive=False)
                     with gr.Row() as filetime_panel:
@@ -1048,7 +1055,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         image_index = gr.Textbox(value=-1, elem_id=f"{tab.base_tag}_image_browser_image_index")
                         set_index = gr.Button('set_index', elem_id=f"{tab.base_tag}_image_browser_set_index")
                         filenames = gr.State([])
-                        hidden = gr.Image(type="pil")
+                        hidden = gr.Image(type="pil", elem_id=f"{tab.base_tag}_image_browser_hidden_image")
                         image_page_list = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_image_page_list")
                         info1 = gr.Textbox()
                         info2 = gr.Textbox()
@@ -1177,7 +1184,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
     )
     turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
-    hide_on_thumbnail_view = [delete_panel, button_panel, ranking, to_dir_panel, info_add_panel]
+    hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
 
     sort_order.click(
@@ -1236,12 +1243,12 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery])
     set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
     img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
-    img_file_name.change(get_ranking, inputs=img_file_name, outputs=ranking)
+    img_file_name.change(get_ranking, inputs=img_file_name, outputs=[ranking_current, ranking])
    
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
     
     #ranking
-    ranking.change(update_ranking, inputs=[img_file_name, ranking, img_file_info], outputs=[img_file_info])
+    ranking.change(update_ranking, inputs=[img_file_name, ranking_current, ranking, img_file_info], outputs=[ranking_current, ranking, img_file_info])
         
     try:
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, hidden, img_file_info)

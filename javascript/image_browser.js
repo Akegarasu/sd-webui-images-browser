@@ -138,9 +138,17 @@ async function image_browser_refresh_preview(wait_time = 200) {
     })
 }
 
+const image_browser_get_current_img_handler = (del_img_btn) => {
+    // Prevent delete button spam
+    del_img_btn.style.pointerEvents = "auto"
+    del_img_btn.style.cursor = "default"
+    del_img_btn.style.opacity = "1"
+}
+
 async function image_browser_select_image(tab_base_tag, img_index) {
     await image_browser_lock("image_browser_select_image")
     const del_img_btn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
+    // Prevent delete button spam
     del_img_btn.style.pointerEvents = "none"
     del_img_btn.style.cursor = "not-allowed"
     del_img_btn.style.opacity = "0.65"        
@@ -157,13 +165,8 @@ async function image_browser_select_image(tab_base_tag, img_index) {
     await image_browser_unlock()
 
     // Prevent delete button spam
-    const image_browser_get_current_img_handler = () => {
-        del_img_btn.style.pointerEvents = "auto"
-        del_img_btn.style.cursor = "default"
-        del_img_btn.style.opacity = "1"
-    }
-    gradioApp().removeEventListener("image_browser_get_current_img", image_browser_get_current_img_handler)
-    gradioApp().addEventListener("image_browser_get_current_img", image_browser_get_current_img_handler)
+    gradioApp().removeEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
+    gradioApp().addEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
 }
 
 async function image_browser_turnpage(tab_base_tag) {

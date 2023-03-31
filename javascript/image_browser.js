@@ -1,6 +1,6 @@
-let state = "free"
-let oldGradio
-let galleryItemName
+let image_browser_state = "free"
+let image_browser_oldGradio
+let image_browser_galleryItemName
 
 onUiLoaded(image_browser_start)
 
@@ -9,7 +9,7 @@ function image_browser_delay(ms){return new Promise(resolve => setTimeout(resolv
 async function image_browser_lock(reason) {
     // Wait until lock removed
     let i = 0
-    while (state != "free") {
+    while (image_browser_state != "free") {
         await image_browser_delay(200)
         i = i + 1
         if (i === 150) {
@@ -17,11 +17,11 @@ async function image_browser_lock(reason) {
         }
     }
     // Lock
-    state = reason
+    image_browser_state = reason
 }
 
 async function image_browser_unlock() {
-    state = "free"
+    image_browser_state = "free"
 }
 
 function isVersionSmaller(version1, version2) {
@@ -36,7 +36,7 @@ function isVersionSmaller(version1, version2) {
 
 const image_browser_click_image = async function() {
     await image_browser_lock("image_browser_click_image")
-    const gallery_items = image_browser_get_parent_by_tagname(this, "DIV").querySelectorAll(galleryItemNameDot)
+    const gallery_items = image_browser_get_parent_by_tagname(this, "DIV").querySelectorAll(image_browser_image_browser_galleryItemNameDot)
     const index = Array.from(gallery_items).indexOf(this)
     const gallery = image_browser_get_parent_by_class(this, "image_browser_container")
     const set_btn = gallery.querySelector(".image_browser_set_index")
@@ -117,7 +117,7 @@ async function image_browser_refresh_current_page_preview(wait_time = 200) {
     const set_btn = gallery.querySelector(".image_browser_set_index")
     const curr_idx = parseInt(set_btn.getAttribute("img_index"))
     // no loading animation, so click immediately
-    const gallery_items = gallery.querySelectorAll(galleryItemNameDot)
+    const gallery_items = gallery.querySelectorAll(image_browser_image_browser_galleryItemNameDot)
     const curr_image = gallery_items[curr_idx]
     curr_image.click()
 }
@@ -132,7 +132,7 @@ async function image_browser_refresh_preview(wait_time = 200) {
     const curr_idx = set_btn.getAttribute("img_index")
     // wait for page loading...
     image_browser_run_after_preview_load(tab_base_tag, () => { 
-        const gallery_items = gallery.querySelectorAll(galleryItemNameDot)
+        const gallery_items = gallery.querySelectorAll(image_browser_image_browser_galleryItemNameDot)
         const curr_image = gallery_items[curr_idx]
         curr_image.click()
     })
@@ -154,7 +154,7 @@ async function image_browser_select_image(tab_base_tag, img_index) {
     del_img_btn.style.opacity = "0.65"        
 
     const gallery = gradioApp().getElementById(tab_base_tag + "_image_browser_gallery")
-    const gallery_items = gallery.querySelectorAll(galleryItemNameDot)
+    const gallery_items = gallery.querySelectorAll(image_browser_image_browser_galleryItemNameDot)
     if (img_index >= gallery_items.length || gallery_items.length == 0) {
         const refreshBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page")
         refreshBtn.dispatchEvent(new Event("click"))
@@ -171,7 +171,7 @@ async function image_browser_select_image(tab_base_tag, img_index) {
 
 async function image_browser_turnpage(tab_base_tag) {
     await image_browser_lock("image_browser_turnpage")
-    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(galleryItemNameDot)
+    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(image_browser_image_browser_galleryItemNameDot)
     gallery_items.forEach(function(elem) {
         elem.style.display = 'block'
     })
@@ -189,7 +189,7 @@ function image_browser_gototab(tabname, tabsId = "tabs") {
 }
 
 async function image_browser_get_image_for_ext(tab_base_tag, image_index) {
-    const image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery ${galleryItemNameDot}`)[image_index]
+    const image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery ${image_browser_image_browser_galleryItemNameDot}`)[image_index]
 
 	const canvas = document.createElement("canvas")
 	const image = document.createElement("img")
@@ -283,13 +283,13 @@ function btnClickHandler(tab_base_tag, btn) {
 function image_browser_init() {
     const GradioVersion = gradioApp().getElementById("image_browser_gradio_version").querySelector("textarea").value
     if (isVersionSmaller(GradioVersion, "3.17")) {
-        oldGradio = true
-        galleryItemName = "gallery-item"
+        image_browser_oldGradio = true
+        image_browser_galleryItemName = "gallery-item"
     } else {
-        oldGradio = false
-        galleryItemName = "thumbnail-item"
+        image_browser_oldGradio = false
+        image_browser_galleryItemName = "thumbnail-item"
     }    
-    galleryItemNameDot = "." + galleryItemName
+    image_browser_image_browser_galleryItemNameDot = "." + image_browser_galleryItemName
     
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
     if (tab_base_tags) {
@@ -316,7 +316,7 @@ function image_browser_init() {
 
 async function image_browser_wait_for_gallery_btn(tab_base_tag){ 
     await image_browser_delay(100)
-    while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName(galleryItemName)) {
+    while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName(image_browser_galleryItemName)) {
         await image_browser_delay(200)
     }
 }
@@ -333,7 +333,7 @@ function image_browser_start() {
             const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",")
             image_browser_tab_base_tags_list.forEach(function(tab_base_tag) {
                 image_browser_class_add(tab_base_tag)
-                const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser ' + galleryItemNameDot)
+                const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser ' + image_browser_image_browser_galleryItemNameDot)
                 tab_gallery_items.forEach(function(gallery_item) {
                     gallery_item.removeEventListener('click', image_browser_click_image, true)
                     gallery_item.addEventListener('click', image_browser_click_image, true)
@@ -344,10 +344,10 @@ function image_browser_start() {
                         const current_tab = image_browser_current_tab()
                         image_browser_wait_for_gallery_btn(current_tab).then(() => {
                             let gallery_btn
-                            if (oldGradio) {
-                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").getElementsByClassName(galleryItemName + ' !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')
+                            if (image_browser_oldGradio) {
+                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").getElementsByClassName(image_browser_galleryItemName + ' !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')
                             } else {
-                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").querySelector(galleryItemNameDot + ' .selected')
+                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").querySelector(image_browser_image_browser_galleryItemNameDot + ' .selected')
                             }
                             gallery_btn = gallery_btn && gallery_btn.length > 0 ? gallery_btn[0] : null
                             if (gallery_btn) {

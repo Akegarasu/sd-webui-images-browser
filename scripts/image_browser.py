@@ -45,14 +45,6 @@ except ImportError:
 importlib.reload(wib_db)
 
 yappi_do = False
-favorite_tab_name = "Favorites"
-default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
-tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
-try:
-    if opts.image_browser_enable_maint:
-        tabs_list.append("Maintenance")  # mandatory tab
-except AttributeError:
-    tabs_list.append("Maintenance")  # mandatory tab
 
 components_list = ["Sort by", "Filename keyword search", "EXIF keyword search", "Ranking Filter", "Aesthestic Score", "Generation Info", "File Name", "File Time", "Open Folder", "Send to buttons", "Copy to directory", "Gallery Controls Bar", "Ranking Bar", "Delete Bar", "Additional Generation Info"]
 
@@ -76,6 +68,24 @@ copied_moved = ["Moved", "Copied"]
 np = "negative_prompt: "
 openoutpaint = False
 controlnet = False
+
+def check_image_browser_active_tabs():
+    # Check if Maintenance tab has been added to settings in addition to as a mandatory tab. If so, remove.
+    if hasattr(opts, "image_browser_active_tabs"):
+        active_tabs_no_maint = re.sub(r",\s*Maintenance", "", opts.image_browser_active_tabs)
+        if len(active_tabs_no_maint) != len(opts.image_browser_active_tabs):
+            shared.opts.__setattr__("image_browser_active_tabs", active_tabs_no_maint)
+            shared.opts.save(shared.config_filename)
+
+favorite_tab_name = "Favorites"
+default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
+check_image_browser_active_tabs()
+tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
+try:
+    if opts.image_browser_enable_maint:
+        tabs_list.append("Maintenance")  # mandatory tab
+except AttributeError:
+    tabs_list.append("Maintenance")  # mandatory tab
 
 path_maps = {
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,

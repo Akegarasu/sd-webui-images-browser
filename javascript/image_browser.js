@@ -1,5 +1,4 @@
 let image_browser_state = "free"
-let image_browser_oldGradio
 let image_browser_galleryItemName
 
 onUiLoaded(image_browser_start)
@@ -22,16 +21,6 @@ async function image_browser_lock(reason) {
 
 async function image_browser_unlock() {
     image_browser_state = "free"
-}
-
-function isVersionSmaller(version1, version2) {
-    let v1 = version1.split('.').map(Number)
-    let v2 = version2.split('.').map(Number)
-    for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
-        if ((v1[i] || 0) < (v2[i] || 0)) return true
-        if ((v1[i] || 0) > (v2[i] || 0)) return false
-    }
-    return false
 }
 
 const image_browser_click_image = async function() {
@@ -171,10 +160,33 @@ async function image_browser_select_image(tab_base_tag, img_index) {
 
 async function image_browser_turnpage(tab_base_tag) {
     await image_browser_lock("image_browser_turnpage")
-    const gallery_items = gradioApp().getElementById(tab_base_tag + '_image_browser').querySelectorAll(image_browser_image_browser_galleryItemNameDot)
-    gallery_items.forEach(function(elem) {
-        elem.style.display = 'block'
-    })
+    const gallery = gradioApp().getElementById(tab_base_tag + "_image_browser_gallery")
+
+    let clear
+    try {
+        clear = gallery.querySelector("button[aria-label='Clear']")
+        if (clear) {
+            clear.click()
+        }
+    } catch (e) {
+        console.error(e)
+    }
+
+    try {
+        // Wait for click-action to complete
+        const startTime = Date.now()
+        // 60 seconds in milliseconds
+        const timeout = 60000
+        while (clear) {
+            clear = gallery.querySelector("button[aria-label='Clear']")
+            if (Date.now() - startTime > timeout) {
+                throw new Error("image_browser_turnpage: 60 seconds have passed")
+            }
+            await image_browser_delay(200)
+        }
+    } catch (e) {
+        console.error(e)
+    }
     await image_browser_unlock()
 }
 
@@ -281,14 +293,7 @@ function btnClickHandler(tab_base_tag, btn) {
 }
 
 function image_browser_init() {
-    const GradioVersion = gradioApp().getElementById("image_browser_gradio_version").querySelector("textarea").value
-    if (isVersionSmaller(GradioVersion, "3.17")) {
-        image_browser_oldGradio = true
-        image_browser_galleryItemName = "gallery-item"
-    } else {
-        image_browser_oldGradio = false
-        image_browser_galleryItemName = "thumbnail-item"
-    }    
+    image_browser_galleryItemName = "thumbnail-item"
     image_browser_image_browser_galleryItemNameDot = "." + image_browser_galleryItemName
     
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
@@ -344,11 +349,7 @@ function image_browser_start() {
                         const current_tab = image_browser_current_tab()
                         image_browser_wait_for_gallery_btn(current_tab).then(() => {
                             let gallery_btn
-                            if (image_browser_oldGradio) {
-                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").getElementsByClassName(image_browser_galleryItemName + ' !flex-none !h-9 !w-9 transition-all duration-75 !ring-2 !ring-orange-500 hover:!ring-orange-500 svelte-1g9btlg')
-                            } else {
-                                gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").querySelector(image_browser_image_browser_galleryItemNameDot + ' .selected')
-                            }
+                            gallery_btn = gradioApp().getElementById(current_tab + "_image_browser_gallery").querySelector(image_browser_image_browser_galleryItemNameDot + ' .selected')
                             gallery_btn = gallery_btn && gallery_btn.length > 0 ? gallery_btn[0] : null
                             if (gallery_btn) {
                                 image_browser_click_image.call(gallery_btn)

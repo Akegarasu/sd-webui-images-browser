@@ -23,6 +23,7 @@ from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
 from modules.ui_components import ToolButton, DropdownMulti
 from PIL import Image, UnidentifiedImageError
+from packaging import version
 from pathlib import Path
 from typing import List, Tuple
 from itertools import chain
@@ -161,6 +162,10 @@ if logger.isEnabledFor(logging.DEBUG):
         logger.debug(f.read())
     logger.debug(os.path.realpath(__file__))
     logger.debug([str(tab) for tab in tabs_list])
+
+gradio_needed = "3.23.0"
+if version.parse(gr.__version__) < version.parse(gradio_needed):
+    raise Exception(f"GradioException: You are running Gradio version {gr.__version__}. This version of the extension requires at least Gradio version {gradio_needed}.\nFor more details see https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585")
 
 def delete_recycle(filename):
     if opts.image_browser_delete_recycle and send2trash_installed:

@@ -163,10 +163,6 @@ if logger.isEnabledFor(logging.DEBUG):
     logger.debug(os.path.realpath(__file__))
     logger.debug([str(tab) for tab in tabs_list])
 
-gradio_needed = "3.23.0"
-if version.parse(gr.__version__) < version.parse(gradio_needed):
-    raise Exception(f"GradioException: You are running Gradio version {gr.__version__}. This version of the extension requires at least Gradio version {gradio_needed}.\nFor more details see https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585")
-
 def delete_recycle(filename):
     if opts.image_browser_delete_recycle and send2trash_installed:
         send2trash(filename)
@@ -1355,14 +1351,17 @@ def on_ui_tabs():
     num_of_imgs_per_page = int(opts.image_browser_page_columns * opts.image_browser_page_rows)
     loads_files_num = int(opts.image_browser_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as image_browser:
-        with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
-            for i, tab in enumerate(tabs_list):
-                with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
-                    with gr.Blocks(analytics_enabled=False):
-                        create_tab(tab, current_gr_tab)
-        gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
-        gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
-        gr.Textbox(value=gr.__version__, elem_id="image_browser_gradio_version", visible=False)
+        gradio_needed = "3.23.0"
+        if version.parse(gr.__version__) < version.parse(gradio_needed):
+            gr.HTML(f'<p style="color: red; font-weight: bold;">You are running Gradio version {gr.__version__}. This version of the extension requires at least Gradio version {gradio_needed}.</p><p style="color: red; font-weight: bold;">For more details see <a href="https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585" target="_blank">https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585</a></p>')
+        else:
+            with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
+                for i, tab in enumerate(tabs_list):
+                    with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
+                        with gr.Blocks(analytics_enabled=False):
+                            create_tab(tab, current_gr_tab)
+            gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
+            gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
 
     return (image_browser , "Image Browser", "image_browser"),
 

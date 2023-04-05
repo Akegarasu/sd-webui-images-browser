@@ -70,6 +70,7 @@ copied_moved = ["Moved", "Copied"]
 np = "negative_prompt: "
 openoutpaint = False
 controlnet = False
+js_dummy_return = None
 
 def check_image_browser_active_tabs():
     # Check if Maintenance tab has been added to settings in addition to as a mandatory tab. If so, remove.
@@ -921,7 +922,7 @@ def update_ranking(img_file_name, ranking_current, ranking, img_file_info):
     return ranking, None, img_file_info
             
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
-    global init, exif_cache, aes_cache, openoutpaint, controlnet
+    global init, exif_cache, aes_cache, openoutpaint, controlnet, js_dummy_return
     dir_name = None
     others_dir = False
     maint = False
@@ -1170,7 +1171,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     #delete
     delete.click(delete_image, inputs=[tab_base_tag_box, delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch, select_image_switch, image_page_list], outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image_switch, image_page_list])
-    select_image_switch.change(fn=None, inputs=[tab_base_tag_box, image_index], outputs=None, _js="image_browser_select_image")
+    select_image_switch.change(fn=None, inputs=[tab_base_tag_box, image_index], outputs=[js_dummy_return], _js="image_browser_select_image")
 
     if tab.name == favorite_tab_name:
         img_file_name.change(fn=update_move_text_one, inputs=[to_dir_btn], outputs=[to_dir_btn])
@@ -1180,11 +1181,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
     #refresh preview when page is updated
     for btn in (first_page, next_page, prev_page, end_page, refresh_index_button, sort_order, ):
-        btn.click(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+        btn.click(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
     for component in (sort_by, ranking_filter):
-        component.change(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+        component.change(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
     for component in (filename_keyword_search, exif_keyword_search, aes_filter_min, aes_filter_max, page_index):
-        component.submit(None,_js="image_browser_refresh_preview", inputs=None, outputs=None)
+        component.submit(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
     #turn page
     first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
@@ -1207,7 +1208,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
     )
-    turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=None, _js="image_browser_turnpage")
+    turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=[js_dummy_return], _js="image_browser_turnpage")
     hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
 
@@ -1300,19 +1301,19 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         sendto_openoutpaint.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, image_browser_prompt, image_browser_neg_prompt],
-            outputs=[],
+            outputs=[js_dummy_return],
             _js="image_browser_openoutpaint_send"
         )
         sendto_controlnet_txt2img.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
-            outputs=[],
+            outputs=[js_dummy_return],
             _js="image_browser_controlnet_send_txt2img"
         )
         sendto_controlnet_img2img.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
-            outputs=[],
+            outputs=[js_dummy_return],
             _js="image_browser_controlnet_send_img2img"
         )
 
@@ -1359,8 +1360,7 @@ def run_pnginfo(image, image_path, image_file_name):
 
 
 def on_ui_tabs():
-    global num_of_imgs_per_page
-    global loads_files_num
+    global num_of_imgs_per_page, loads_files_num, js_dummy_return
     num_of_imgs_per_page = int(opts.image_browser_page_columns * opts.image_browser_page_rows)
     loads_files_num = int(opts.image_browser_pages_perload * num_of_imgs_per_page)
     with gr.Blocks(analytics_enabled=False) as image_browser:
@@ -1369,6 +1369,7 @@ def on_ui_tabs():
             gr.HTML(f'<p style="color: red; font-weight: bold;">You are running Gradio version {gr.__version__}. This version of the extension requires at least Gradio version {gradio_needed}.</p><p style="color: red; font-weight: bold;">For more details see <a href="https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585" target="_blank">https://github.com/AlUlkesh/stable-diffusion-webui-images-browser/issues/116#issuecomment-1493259585</a></p>')
         else:
             with gr.Tabs(elem_id="image_browser_tabs_container") as tabs:
+                js_dummy_return = gr.Textbox(interactive=False, visible=False)
                 for i, tab in enumerate(tabs_list):
                     with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
                         with gr.Blocks(analytics_enabled=False):

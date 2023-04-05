@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import traceback
+import hashlib
 import modules.extras
 import modules.images
 import modules.ui
@@ -756,10 +757,21 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     return filenames
 
 def get_image_thumbnail(image_list):
+    optimized_cache = os.path.join(tempfile.gettempdir(),"optimized")
+    os.makedirs(optimized_cache,exist_ok=True)
     thumbnail_list = []
     for image_path in image_list:
-        try:
-            image = Image.open(image_path)
+        image_path_hash = hashlib.md5(image_path.encode("utf-8")).hexdigest()
+        cache_image_path = os.path.join(optimized_cache, image_path_hash + ".jpg")
+        if os.path.isfile(cache_image_path):
+            thumbnail_list.append(cache_image_path)
+        else:
+            try:
+                image = Image.open(image_path)
+            except OSError:
+                # If PIL cannot open the image, use the original path
+                thumbnail_list.append(image_path)
+                continue
             width, height = image.size
             left = (width - min(width, height)) / 2
             top = (height - min(width, height)) / 2
@@ -767,11 +779,12 @@ def get_image_thumbnail(image_list):
             bottom = (height + min(width, height)) / 2
             thumbnail = image.crop((left, top, right, bottom))
             thumbnail.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
-        except OSError:
-            # If PIL cannot open the image, use the original path
-            thumbnail_list.append(image_path)
-        else:
-            thumbnail_list.append(thumbnail)
+            try:
+                thumbnail.save(cache_image_path, "JPEG")
+                thumbnail_list.append(cache_image_path)
+            except FileNotFoundError:
+                # Cannot save cache, use PIL object
+                thumbnail_list.append(thumbnail)
     return thumbnail_list
 
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):

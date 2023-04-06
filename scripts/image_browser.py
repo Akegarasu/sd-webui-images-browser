@@ -780,6 +780,8 @@ def get_image_thumbnail(image_list):
             bottom = (height + min(width, height)) / 2
             thumbnail = image.crop((left, top, right, bottom))
             thumbnail.thumbnail((opts.image_browser_thumbnail_size, opts.image_browser_thumbnail_size))
+            if thumbnail.mode != "RGB":
+                thumbnail = thumbnail.convert("RGB")
             try:
                 thumbnail.save(cache_image_path, "JPEG")
                 thumbnail_list.append(cache_image_path)

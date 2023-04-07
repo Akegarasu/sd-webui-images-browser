@@ -301,7 +301,7 @@ def save_image(file_name, filenames, page_index, turn_page_switch, dest_path):
 
     return message, filenames, page_index, turn_page_switch
 
-def delete_image(tab_base_tag_box, delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch, select_image_switch, image_page_list):
+def delete_image(tab_base_tag_box, delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch, image_page_list):
     refresh = False
     delete_num = int(delete_num)
     image_index = int(image_index)
@@ -343,10 +343,11 @@ def delete_image(tab_base_tag_box, delete_num, name, filenames, image_index, vis
 
     if refresh:
         turn_page_switch = -turn_page_switch
+        select_image = False
     else:
-        select_image_switch = -select_image_switch
+        select_image = True
 
-    return new_file_list, 1, turn_page_switch, visible_num, new_image_page_list, select_image_switch, json.dumps(new_image_page_list)
+    return new_file_list, 1, turn_page_switch, visible_num, new_image_page_list, select_image, json.dumps(new_image_page_list)
 
 def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) -> List[Tuple[str, os.stat_result, str, int]]:
     global current_depth
@@ -820,7 +821,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info = "<div style='color:#999' align='center'>"
     load_info += f"{length} images in this directory, divided into {int((length + 1) // num_of_imgs_per_page  + 1)} pages"
     load_info += "</div>"
-    
+
     return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), thumbnail_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list)
 
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
@@ -837,7 +838,8 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
         tm =  None
         info = ""
     else:
-        file_num = int(num) + int((page_index - 1) * num_of_imgs_per_page)
+        file_num = int(num) + int(
+            (page_index - 1) * num_of_imgs_per_page)
         if file_num >= len(filenames):
             # Last image to the right is deleted, page refresh
             turn_page_switch = -turn_page_switch
@@ -894,6 +896,12 @@ def update_move_text(favorites_btn, to_dir_btn):
 def get_ranking(filename):
     ranking_value = wib_db.select_ranking(filename)
     return ranking_value, None
+
+def img_file_name_changed(img_file_name, favorites_btn, to_dir_btn):
+    ranking_current, ranking = get_ranking(img_file_name)
+    favorites_btn, to_dir_btn = update_move_text(favorites_btn, to_dir_btn)
+
+    return ranking_current, ranking, "", favorites_btn, to_dir_btn
 
 def update_ranking(img_file_name, ranking_current, ranking, img_file_info):
     # ranking = None is different than ranking = "None"! None means no radio button selected. "None" means radio button called "None" selected.
@@ -961,7 +969,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     with gr.Row():                 
         path_recorder = gr.State(path_recorder)
         with gr.Column(scale=10):
-            warning_box = gr.HTML("<p>&nbsp")
+            warning_box = gr.HTML("<p>&nbsp", elem_id=f"{tab.base_tag}_image_browser_warning_box")
         with gr.Column(scale=5, visible=(tab.name==favorite_tab_name)):
             gr.HTML(f"<p>Favorites path from settings: {opts.outdir_save}")
 
@@ -991,22 +999,22 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                 with gr.Column(scale=2):    
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_gallery_controls") as gallery_controls_panel:
                         with gr.Column(scale=2, min_width=20):
-                            first_page = gr.Button('First Page')
+                            first_page = gr.Button("First Page", elem_id=f"{tab.base_tag}_control_image_browser_first_page")
                         with gr.Column(scale=2, min_width=20):
-                            prev_page = gr.Button('Prev Page', elem_id=f"{tab.base_tag}_image_browser_prev_page")
+                            prev_page = gr.Button("Prev Page", elem_id=f"{tab.base_tag}_control_image_browser_prev_page")
                         with gr.Column(scale=2, min_width=20):
-                            page_index = gr.Number(value=1, label="Page Index")
+                            page_index = gr.Number(value=1, label="Page Index", elem_id=f"{tab.base_tag}_control_image_browser_page_index")
                         with gr.Column(scale=1, min_width=20):
-                            refresh_index_button = ToolButton(value=refresh_symbol)
+                            refresh_index_button = ToolButton(value=refresh_symbol, elem_id=f"{tab.base_tag}_control_image_browser_refresh_index")
                         with gr.Column(scale=2, min_width=20):
-                            next_page = gr.Button('Next Page', elem_id=f"{tab.base_tag}_image_browser_next_page")
+                            next_page = gr.Button("Next Page", elem_id=f"{tab.base_tag}_control_image_browser_next_page")
                         with gr.Column(scale=2, min_width=20):
-                            end_page = gr.Button('End Page') 
+                            end_page = gr.Button("End Page", elem_id=f"{tab.base_tag}_control_image_browser_end_page") 
                     with gr.Row(visible=False) as ranking_panel:
                         with gr.Column(scale=1, min_width=20):
                             ranking_current = gr.Textbox(value="None", label="Current ranking", interactive=False)
                         with gr.Column(scale=4, min_width=20):
-                            ranking = gr.Radio(choices=["1", "2", "3", "4", "5", "None"], label="Set ranking to", elem_id=f"{tab.base_tag}_image_browser_ranking", interactive=True)
+                            ranking = gr.Radio(choices=["1", "2", "3", "4", "5", "None"], label="Set ranking to", elem_id=f"{tab.base_tag}_control_image_browser_ranking", interactive=True)
                     with gr.Row():
                         image_gallery = gr.Gallery(show_label=False, elem_id=f"{tab.base_tag}_image_browser_gallery").style(grid=opts.image_browser_page_columns)
                     with gr.Row() as delete_panel:
@@ -1051,8 +1059,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_button_panel", visible=False) as button_panel:
                         with gr.Column():
                             with gr.Row():
-                                if tab.name != favorite_tab_name:
-                                    favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn")
+                                if tab.name == favorite_tab_name:
+                                    favorites_btn_show = False
+                                else:
+                                    favorites_btn_show = True
+                                favorites_btn = gr.Button(f'{copy_move[opts.image_browser_copy_image]} to favorites', elem_id=f"{tab.base_tag}_image_browser_favorites_btn", visible=favorites_btn_show)
                                 try:
                                     send_to_buttons = modules.generation_parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
                                 except:
@@ -1089,7 +1100,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         load_switch = gr.Textbox(value="load_switch", label="load_switch")
                         to_dir_load_switch = gr.Textbox(value="to dir load_switch", label="to_dir_load_switch")
                         turn_page_switch = gr.Number(value=1, label="turn_page_switch")
-                        select_image_switch = gr.Number(value=1)
+                        select_image = gr.Number(value=1)
                         img_path_add = gr.Textbox(value="add")
                         img_path_remove = gr.Textbox(value="remove")
                         favorites_path = gr.Textbox(value=opts.outdir_save)
@@ -1172,22 +1183,18 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth])
 
     #delete
-    delete.click(delete_image, inputs=[tab_base_tag_box, delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch, select_image_switch, image_page_list], outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image_switch, image_page_list])
-    select_image_switch.change(fn=None, inputs=[tab_base_tag_box, image_index], outputs=[js_dummy_return], _js="image_browser_select_image")
+    delete.click(
+        fn=delete_image,
+        inputs=[tab_base_tag_box, delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch, image_page_list],
+        outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image, image_page_list]
+    ).then(
+        fn=None,
+        _js="image_browser_select_image",
+        inputs=[tab_base_tag_box, image_index, select_image],
+        outputs=[js_dummy_return]
+    )
 
-    if tab.name == favorite_tab_name:
-        img_file_name.change(fn=update_move_text_one, inputs=[to_dir_btn], outputs=[to_dir_btn])
-    else:
-        favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-        img_file_name.change(fn=update_move_text, inputs=[favorites_btn, to_dir_btn], outputs=[favorites_btn, to_dir_btn])
     to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-    #refresh preview when page is updated
-    for btn in (first_page, next_page, prev_page, end_page, refresh_index_button, sort_order, ):
-        btn.click(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
-    for component in (sort_by, ranking_filter):
-        component.change(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
-    for component in (filename_keyword_search, exif_keyword_search, aes_filter_min, aes_filter_max, page_index):
-        component.submit(fn=None,_js="image_browser_refresh_preview", inputs=None, outputs=[js_dummy_return])
     #turn page
     first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
@@ -1209,8 +1216,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         fn=get_image_page, 
         inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
         outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
+    ).then(
+        fn=None,
+        _js="image_browser_turnpage",
+        inputs=[tab_base_tag_box],
+        outputs=[js_dummy_return],
     )
-    turn_page_switch.change(fn=None, inputs=[tab_base_tag_box], outputs=[js_dummy_return], _js="image_browser_turnpage")
+
     hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
     turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
 
@@ -1269,8 +1281,9 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     # other functions
     set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery])
     set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
-    img_file_name.change(fn=lambda : "", inputs=None, outputs=[collected_warning])
-    img_file_name.change(get_ranking, inputs=img_file_name, outputs=[ranking_current, ranking])
+
+    favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
+    img_file_name.change(img_file_name_changed, inputs=[img_file_name, favorites_btn, to_dir_btn], outputs=[ranking_current, ranking, collected_warning, favorites_btn, to_dir_btn])
    
     hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
     
@@ -1376,7 +1389,6 @@ def on_ui_tabs():
                     with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
                         with gr.Blocks(analytics_enabled=False):
                             create_tab(tab, current_gr_tab)
-            gr.Checkbox(opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
             gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
 
     return (image_browser , "Image Browser", "image_browser"),
@@ -1408,7 +1420,6 @@ def on_ui_settings():
         ("image_browser_active_tabs", None, ", ".join(default_tab_options), active_tabs_description),
         ("image_browser_hidden_components", None, [], "Select components to hide", DropdownMulti, lambda: {"choices": components_list}),
         ("image_browser_with_subdirs", "images_history_with_subdirs", True, "Include images in sub directories"),
-        ("image_browser_preload", "images_history_preload", False, "Preload images at startup"),
         ("image_browser_copy_image", "images_copy_image", False, "Move buttons copy instead of move"),
         ("image_browser_delete_message", "images_delete_message", True, "Print image deletion messages to the console"),
         ("image_browser_txt_files", "images_txt_files", True, "Move/Copy/Delete matching .txt files"),

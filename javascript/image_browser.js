@@ -352,6 +352,7 @@ function image_browser_init() {
         })
     }
     image_browser_keydown()
+    image_browser_touch()
 }
 
 async function image_browser_wait_for_gallery_btn(tab_base_tag){ 
@@ -535,6 +536,44 @@ function image_browser_keydown() {
             const curr_idx = parseInt(set_btn.getAttribute("img_index"))
             set_btn.setAttribute("img_index", curr_idx + 1)
             image_browser_refresh_current_page_preview()
+        }
+    })
+}
+
+function image_browser_touch() {
+    let touchStartX = 0
+    let touchEndX = 0
+    gradioApp().addEventListener("touchstart", function(event) {
+        if (!image_browser_active()) {
+            return
+        }
+        touchStartX = event.touches[0].clientX;
+    })
+    gradioApp().addEventListener("touchend", function(event) {
+        if (!image_browser_active()) {
+            return
+        }
+        touchEndX = event.changedTouches[0].clientX
+        const touchDiffX = touchStartX - touchEndX
+        if (touchDiffX > 50) {
+            const tab_base_tag = image_browser_current_tab()
+            const set_btn = gradioApp().querySelector(`#${tab_base_tag}_image_browser .image_browser_set_index`)
+            const curr_idx = parseInt(set_btn.getAttribute("img_index"))
+            if (curr_idx >= 1) {
+                set_btn.setAttribute("img_index", curr_idx - 1)
+                image_browser_refresh_current_page_preview()
+            }
+        } else if (touchDiffX < -50) {
+            const tab_base_tag = image_browser_current_tab()
+            const gallery = gradioApp().querySelector(`#${tab_base_tag}_image_browser`)
+            const gallery_items = gallery.querySelectorAll(".thumbnail-item")
+            const thumbnails = gallery_items.length / 2
+            const set_btn = gradioApp().querySelector(`#${tab_base_tag}_image_browser .image_browser_set_index`)
+            const curr_idx = parseInt(set_btn.getAttribute("img_index"))
+            if (curr_idx + 1 < thumbnails) {
+                set_btn.setAttribute("img_index", curr_idx + 1)
+                image_browser_refresh_current_page_preview()
+            }
         }
     })
 }

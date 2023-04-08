@@ -1073,7 +1073,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                                 sendto_controlnet_txt2img = gr.Button("Send to txt2img ControlNet", visible=controlnet)
                                 sendto_controlnet_img2img = gr.Button("Send to img2img ControlNet", visible=controlnet)
                                 controlnet_max = opts.data.get("control_net_max_models_num", 1)
-                                sendto_controlnet_num = gr.Dropdown(list(range(controlnet_max)), label="ControlNet number", value="0", interactive=True, visible=(controlnet and controlnet_max > 1))
+                                sendto_controlnet_num = gr.Dropdown([str(i) for i in range(controlnet_max)], label="ControlNet number", value="0", interactive=True, visible=(controlnet and controlnet_max > 1))
+                                if controlnet_max is None:
+                                    sendto_controlnet_type = gr.Textbox(value="none", visible=False)
+                                elif controlnet_max == 1:
+                                    sendto_controlnet_type = gr.Textbox(value="single", visible=False)
+                                else:
+                                    sendto_controlnet_type = gr.Textbox(value="multiple", visible=False)
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_to_dir_panel", visible=False) as to_dir_panel:
                         with gr.Box():
                             with gr.Row():
@@ -1321,13 +1327,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         )
         sendto_controlnet_txt2img.click(
             fn=None,
-            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
+            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num, sendto_controlnet_type],
             outputs=[js_dummy_return],
             _js="image_browser_controlnet_send_txt2img"
         )
         sendto_controlnet_img2img.click(
             fn=None,
-            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num],
+            inputs=[tab_base_tag_box, image_index, sendto_controlnet_num, sendto_controlnet_type],
             outputs=[js_dummy_return],
             _js="image_browser_controlnet_send_img2img"
         )

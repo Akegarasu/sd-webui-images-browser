@@ -858,9 +858,9 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
             if opts.image_browser_use_thumbnail:
                 image_gallery = [image['name'] for image in image_gallery]
                 image_gallery[int(num)] = filenames[file_num]
+                return file, tm, num, file, turn_page_switch, info, image_gallery
             else:
-                image_gallery = gr.update()
-    return file, tm, num, file, turn_page_switch, info, image_gallery
+                return file, tm, num, file, turn_page_switch, info
 
 def change_dir(img_dir, path_recorder, load_switch, img_path_browser, img_path_depth, img_path):
     warning = None
@@ -1285,7 +1285,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     )
 
     # other functions
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=[img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery])
+    if opts.image_browser_use_thumbnail:
+        set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery]
+    else:
+        set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add]
+    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=set_index_outputs)
     set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
 
     favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])

@@ -19,6 +19,7 @@ import hashlib
 import modules.extras
 import modules.images
 import modules.ui
+from datetime import datetime
 from modules import paths, shared, script_callbacks, scripts, images
 from modules.shared import opts, cmd_opts
 from modules.ui_common import plaintext_to_html
@@ -131,21 +132,47 @@ class ImageBrowserTab():
 
 tabs_list = [ImageBrowserTab(tab) for tab in tabs_list]
 
+debug_level_types = ["none", "warning log", "debug log", "javascript log"] #, "capture logs for saving"]
+
+debug_levels_list = []
+for i in range(len(debug_level_types)):
+    level = debug_level_types[i].split(" ")[0]
+    text = str(i) + " - " + debug_level_types[i]
+    debug_levels_list.append((level, text))
+
+def debug_levels(arg_value=None, arg_level=None, arg_text=None):
+    if arg_value is not None:
+        return arg_value, debug_levels_list[arg_value]
+    elif arg_level is not None:
+        for i, (level, text) in enumerate(debug_levels_list):
+            if level == arg_level:
+                return i, debug_levels_list[i]
+    elif arg_text is not None:
+        for i, (level, text) in enumerate(debug_levels_list):
+            if text == arg_text:
+                return i, debug_levels_list[i]
+
 # Logging
 logger = logging.getLogger(__name__)
 logger_mode = logging.ERROR
-if hasattr(opts, "image_browser_logger_warning"):
-    if opts.image_browser_logger_warning:
-        logger_mode = logging.WARNING
-if hasattr(opts, "image_browser_logger_debug"):
-    if opts.image_browser_logger_debug:
+level_value = 0
+if hasattr(opts, "image_browser_debug_level"):
+    warning_level_value, (warning_level, warning_level_text) = debug_levels(arg_level="warning")
+    debug_level_value, (debug_level, debug_level_text) = debug_levels(arg_level="debug")
+    level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
+    if level_value >= debug_level_value:
         logger_mode = logging.DEBUG
+    elif level_value >= warning_level_value:
+        logger_mode = logging.WARNING
 logger.setLevel(logger_mode)
 if (logger.hasHandlers()):
     logger.handlers.clear()
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logger_mode)
+formatter = logging.Formatter(f'%(asctime)s image_browser.py: %(message)s', datefmt='%Y-%m-%d-%H:%M:%S')
+console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+logger.warning(f"debug_level: {level_value}")
 # Debug logging
 if logger.isEnabledFor(logging.DEBUG):
     logger.debug(f"{sys.executable} {sys.version}")
@@ -245,6 +272,10 @@ def tab_select():
     path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
     return path_recorder, gr.update(choices=path_recorder_unformatted)
 
+def js_logs_output(js_log):
+    print(js_log)
+    return js_log
+
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
         name, ext = os.path.splitext(basename)
@@ -302,6 +333,7 @@ def save_image(file_name, filenames, page_index, turn_page_switch, dest_path):
     return message, filenames, page_index, turn_page_switch
 
 def delete_image(tab_base_tag_box, delete_num, name, filenames, image_index, visible_num, delete_confirm, turn_page_switch, image_page_list):
+    logger.debug("delete_image")
     refresh = False
     delete_num = int(delete_num)
     image_index = int(image_index)
@@ -641,6 +673,7 @@ def exif_search(needle, haystack, use_regex, case_sensitive):
 
 def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     global current_depth
+    logger.debug("get_all_images")
     current_depth = 0
     fileinfos = traverse_all_files(dir_name, [], tab_base_tag_box, img_path_depth)
     keyword = keyword.strip(" ")
@@ -762,6 +795,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     return filenames
 
 def get_image_thumbnail(image_list):
+    logger.debug("get_image_thumbnail")
     optimized_cache = os.path.join(tempfile.gettempdir(),"optimized")
     os.makedirs(optimized_cache,exist_ok=True)
     thumbnail_list = []
@@ -795,6 +829,7 @@ def get_image_thumbnail(image_list):
     return thumbnail_list
 
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
+    logger.debug("get_image_page")
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", None, ""
 
@@ -832,7 +867,7 @@ def get_current_file(tab_base_tag_box, num, page_index, filenames):
     return file
     
 def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_switch, image_gallery):
-    logger.debug(f"tab_base_tag_box, num, page_index, len(filenames), num_of_imgs_per_page: {tab_base_tag_box}, {num}, {page_index}, {len(filenames)}, {num_of_imgs_per_page}")
+    logger.debug(f"show_image_info: tab_base_tag_box, num, page_index, len(filenames), num_of_imgs_per_page: {tab_base_tag_box}, {num}, {page_index}, {len(filenames)}, {num_of_imgs_per_page}")
     if len(filenames) == 0:
         # This should only happen if webui was stopped and started again and the user clicks on one of the still displayed images.
         # The state with the filenames will be empty then. In that case we return None to prevent further errors and force a page refresh.
@@ -1121,6 +1156,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         image_browser_mod_keys = gr.Textbox(value=mod_keys, elem_id=f"{tab.base_tag}_image_browser_mod_keys")
                         image_browser_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_prompt")
                         image_browser_neg_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_neg_prompt")
+                        js_logs = gr.Textbox()
 
     # Maintenance tab
     with gr.Row(visible=maint): 
@@ -1151,6 +1187,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             maint_reapply_ranking = gr.Button(value="Reapply ranking after moving files")
         with gr.Column(scale=10):
             gr.HTML(visible=False)
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=1):
+            maint_get_js_logs = gr.Button(value="Get javascript logs")
+        with gr.Column(scale=10):
+            maint_show_logs = gr.Textbox(label="Javascript logs", lines=10, interactive=False)
     with gr.Row(visible=False): 
         with gr.Column(scale=1):
             maint_rebuild_ranking = gr.Button(value="Rebuild ranking from exif info")
@@ -1286,6 +1327,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         inputs=[path_recorder, maint_wait],
         outputs=[maint_wait, maint_last_msg]
     )
+    maint_get_js_logs.click(
+        fn=js_logs_output,
+        _js="get_js_logs",
+        show_progress=True,
+        inputs=[js_logs],
+        outputs=[maint_show_logs]
+    )
 
     # other functions
     if opts.image_browser_use_thumbnail:
@@ -1404,7 +1452,15 @@ def on_ui_tabs():
                             create_tab(tab, current_gr_tab)
             gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
 
-    return (image_browser , "Image Browser", "image_browser"),
+            javascript_level_value, (javascript_level, javascript_level_text) = debug_levels(arg_level="javascript")
+            level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
+            if level_value >= javascript_level_value:
+                debug_level_option = level
+            else:
+                debug_level_option = ""
+            gr.Textbox(value=debug_level_option, elem_id="image_browser_debug_level_option", visible=False)
+
+    return (image_browser, "Image Browser", "image_browser"),
 
 def move_setting(cur_setting_name, old_setting_name, option_info, section, added):
     try:
@@ -1428,6 +1484,10 @@ def move_setting(cur_setting_name, old_setting_name, option_info, section, added
 def on_ui_settings():
     # [current setting_name], [old setting_name], [default], [label], [component], [component_args]
     active_tabs_description = f"List of active tabs (separated by commas). Available options are {', '.join(default_tab_options)}. Custom folders are also supported by specifying their path."
+    debug_level_choices = []
+    for i in range(len(debug_level_types)):
+        level_value, (level, level_text) = debug_levels(arg_value=i)
+        debug_level_choices.append(level_text)
 
     image_browser_options = [
         ("image_browser_active_tabs", None, ", ".join(default_tab_options), active_tabs_description),
@@ -1436,8 +1496,7 @@ def on_ui_settings():
         ("image_browser_copy_image", "images_copy_image", False, "Move buttons copy instead of move"),
         ("image_browser_delete_message", "images_delete_message", True, "Print image deletion messages to the console"),
         ("image_browser_txt_files", "images_txt_files", True, "Move/Copy/Delete matching .txt files"),
-        ("image_browser_logger_warning", "images_logger_warning", False, "Print warning logs to the console"),
-        ("image_browser_logger_debug", "images_logger_debug", False, "Print debug logs to the console"),
+        ("image_browser_debug_level", None, debug_level_choices[0], "Debug level", gr.Dropdown, lambda: {"choices": debug_level_choices}),
         ("image_browser_delete_recycle", "images_delete_recycle", False, "Use recycle bin when deleting images"),
         ("image_browser_scan_exif", "images_scan_exif", True, "Scan Exif-/.txt-data (initially slower, but required for many features to work)"),
         ("image_browser_mod_shift", None, False, "Change CTRL keybindings to SHIFT"),

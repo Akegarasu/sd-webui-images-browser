@@ -1,21 +1,26 @@
 let image_browser_state = "free"
 let image_browser_webui_ready = false
 let image_browser_started = false
+let image_browser_console_log = ""
+let image_browser_debug = false
 
 function image_browser_delay(ms){return new Promise(resolve => setTimeout(resolve, ms))}
 
 onUiLoaded(image_browser_start_it_up)
 
 async function image_browser_wait_for_webui() { 
+    if (image_browser_debug) console.log("image_browser_wait_for_webui:start")
     await image_browser_delay(100)
     while (gradioApp().getElementById("setting_sd_model_checkpoint").querySelector(".eta-bar")) {
         await image_browser_delay(200)
     }
     image_browser_webui_ready = true
     image_browser_start()
+    if (image_browser_debug) console.log("image_browser_wait_for_webui:end")
 }
 
 async function image_browser_start_it_up() {
+    if (image_browser_debug) console.log("image_browser_start_it_up:start")
     container = gradioApp().getElementById("image_browser_tabs_container")
     let controls = container.querySelectorAll('[id*="_control_"]')
     controls.forEach(function(control) {
@@ -29,9 +34,11 @@ async function image_browser_start_it_up() {
     })
 
     image_browser_wait_for_webui()
+    if (image_browser_debug) console.log("image_browser_start_it_up:end")
 }
 
 async function image_browser_lock(reason) {
+    if (image_browser_debug) console.log("image_browser_lock:start")
     // Wait until lock removed
     let i = 0
     while (image_browser_state != "free") {
@@ -43,13 +50,17 @@ async function image_browser_lock(reason) {
     }
     // Lock
     image_browser_state = reason
+    if (image_browser_debug) console.log("image_browser_lock:end")
 }
 
 async function image_browser_unlock() {
+    if (image_browser_debug) console.log("image_browser_unlock:start")
     image_browser_state = "free"
+    if (image_browser_debug) console.log("image_browser_unlock:end")
 }
 
 const image_browser_click_image = async function() {
+    if (image_browser_debug) console.log("image_browser_click_image:start")
     await image_browser_lock("image_browser_click_image")
     const tab_base_tag = image_browser_current_tab()
     const container = gradioApp().getElementById(tab_base_tag + "_image_browser_container")
@@ -70,13 +81,16 @@ const image_browser_click_image = async function() {
     }
     await image_browser_unlock()
     set_btn.click()
+    if (image_browser_debug) console.log("image_browser_click_image:end")
 }
 
 async function image_browser_get_current_img(tab_base_tag, img_index, page_index, filenames, turn_page_switch, image_gallery) {
+    if (image_browser_debug) console.log("image_browser_get_current_img:start")
     await image_browser_lock("image_browser_get_current_img")
     img_index = gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').getAttribute("img_index")
     gradioApp().dispatchEvent(new Event("image_browser_get_current_img"))
     await image_browser_unlock()
+    if (image_browser_debug) console.log("image_browser_get_current_img:end")
     return [
         tab_base_tag,
         img_index,
@@ -88,9 +102,13 @@ async function image_browser_get_current_img(tab_base_tag, img_index, page_index
 }
 
 async function image_browser_refresh_current_page_preview() { 
+    if (image_browser_debug) console.log("image_browser_refresh_current_page_preview:start")
     await image_browser_delay(200)
     const preview_div = gradioApp().querySelector('.preview')
-    if (preview_div === null) return
+    if (preview_div === null) {
+        if (image_browser_debug) console.log("image_browser_refresh_current_page_preview:end")
+        return
+    }
     const tab_base_tag = image_browser_current_tab()
     const gallery = gradioApp().querySelector(`#${tab_base_tag}_image_browser`)
     const set_btn = gallery.querySelector(".image_browser_set_index")
@@ -99,9 +117,11 @@ async function image_browser_refresh_current_page_preview() {
     const gallery_items = gallery.querySelectorAll(".thumbnail-item")
     const curr_image = gallery_items[curr_idx]
     curr_image.click()
+    if (image_browser_debug) console.log("image_browser_refresh_current_page_preview:end")
 }
 
 async function image_browser_turnpage(tab_base_tag) {
+    if (image_browser_debug) console.log("image_browser_turnpage:start")
     while (!image_browser_started) {
         await image_browser_delay(200)
     }
@@ -115,16 +135,20 @@ async function image_browser_turnpage(tab_base_tag) {
     } catch (e) {
         console.error(e)
     }
+    if (image_browser_debug) console.log("image_browser_turnpage:end")
 }
 
 const image_browser_get_current_img_handler = (del_img_btn) => {
+    if (image_browser_debug) console.log("image_browser_get_current_img_handler:start")
     // Prevent delete button spam
     del_img_btn.style.pointerEvents = "auto"
     del_img_btn.style.cursor = "default"
     del_img_btn.style.opacity = "1"
+    if (image_browser_debug) console.log("image_browser_get_current_img_handler:end")
 }
 
 async function image_browser_select_image(tab_base_tag, img_index, select_image) {
+    if (image_browser_debug) console.log("image_browser_select_image:start")
     if (select_image) {
         await image_browser_lock("image_browser_select_image")
         const del_img_btn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
@@ -148,9 +172,11 @@ async function image_browser_select_image(tab_base_tag, img_index, select_image)
         gradioApp().removeEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
         gradioApp().addEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
     }
+    if (image_browser_debug) console.log("image_browser_select_image:end")
 }
 
 async function image_browser_gototab(tabname) {
+    if (image_browser_debug) console.log("image_browser_gototab:start")
     await image_browser_lock("image_browser_gototab")
 
     tabNav = gradioApp().querySelector(".tab-nav")
@@ -180,9 +206,11 @@ async function image_browser_gototab(tabname) {
     }
 
     await image_browser_unlock()
+    if (image_browser_debug) console.log("image_browser_gototab:end")
 }
 
 async function image_browser_get_image_for_ext(tab_base_tag, image_index) {
+    if (image_browser_debug) console.log("image_browser_get_image_for_ext:start")
     const image_browser_image = gradioApp().querySelectorAll(`#${tab_base_tag}_image_browser_gallery .thumbnail-item`)[image_index]
 
 	const canvas = document.createElement("canvas")
@@ -196,10 +224,12 @@ async function image_browser_get_image_for_ext(tab_base_tag, image_index) {
 
 	canvas.getContext("2d").drawImage(image, 0, 0)
 
+    if (image_browser_debug) console.log("image_browser_get_image_for_ext:end")
 	return canvas.toDataURL()
 }
 
 function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browser_prompt, image_browser_neg_prompt, name = "WebUI Resource") {
+    if (image_browser_debug) console.log("image_browser_openoutpaint_send:start")
     image_browser_get_image_for_ext(tab_base_tag, image_index)
 		.then((dataURL) => {
 			// Send to openOutpaint
@@ -220,9 +250,11 @@ function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browse
 			// Change Tab
             image_browser_gototab("openOutpaint")
 		})
+    if (image_browser_debug) console.log("image_browser_openoutpaint_send:end")
 }
 
 async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, controlnetNum, controlnetType) {
+    if (image_browser_debug) console.log("image_browser_controlnet_send:start")
     // Logic originally based on github.com/fkunn1326/openpose-editor
     const dataURL = await image_browser_get_image_for_ext(tab_base_tag, image_index)
     const blob = await (await fetch(dataURL)).blob()
@@ -310,6 +342,7 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
     input.files = list
     const event = new Event("change", { "bubbles": true, "composed": true })
     input.dispatchEvent(event)
+    if (image_browser_debug) console.log("image_browser_controlnet_send:end")
 }
 
 function image_browser_controlnet_send_txt2img(tab_base_tag, image_index, controlnetNum, controlnetType) {
@@ -328,14 +361,17 @@ function image_browser_class_add(tab_base_tag) {
 }
 
 function btnClickHandler(tab_base_tag, btn) {
+    if (image_browser_debug) console.log("btnClickHandler:start")
     const tabs_box = gradioApp().getElementById("image_browser_tabs_container")
     if (!tabs_box.classList.contains(tab_base_tag)) {
         gradioApp().getElementById(tab_base_tag + "_image_browser_renew_page").click()
         tabs_box.classList.add(tab_base_tag)
     }
+    if (image_browser_debug) console.log("btnClickHandler:end")
 }
 
 function image_browser_init() {
+    if (image_browser_debug) console.log("image_browser_init:start")
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
     if (tab_base_tags) {
         const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",")
@@ -353,20 +389,38 @@ function image_browser_init() {
     }
     image_browser_keydown()
     image_browser_touch()
+    if (image_browser_debug) console.log("image_browser_init:end")
 }
 
 async function image_browser_wait_for_gallery_btn(tab_base_tag){ 
+    if (image_browser_debug) console.log("image_browser_wait_for_gallery_btn:start")
     await image_browser_delay(100)
     while (!gradioApp().getElementById(image_browser_current_tab() + "_image_browser_gallery").getElementsByClassName("thumbnail-item")) {
         await image_browser_delay(200)
     }
+    if (image_browser_debug) console.log("image_browser_wait_for_gallery_btn:end")
 }
 
-function image_browser_renew_page(tab_base_tag) {
-    gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click()
+function image_browser_hijack_console_log() {
+    (function () {
+        const oldLog = console.log
+        console.log = function (message) {
+            const formattedTime = new Date().toISOString().slice(0, -5).replace(/[TZ]/g, ' ').trim().replace(/\s+/g, '-').replace(/:/g, '-')
+            image_browser_console_log = image_browser_console_log + formattedTime + " " + "image_browser.js: " + message + "\n"
+            oldLog.apply(console, arguments)
+        }
+    })()
+    image_browser_debug = true
+}
+
+function get_js_logs() {
+    log_to_py = image_browser_console_log
+    image_browser_console_log = ""
+    return log_to_py
 }
 
 function image_browser_start() {
+    if (image_browser_debug) console.log("image_browser_start:start")
     image_browser_init()
     const mutationObserver = new MutationObserver(function(mutationsList) {
         const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
@@ -380,6 +434,7 @@ function image_browser_start() {
                     gallery_item.addEventListener('click', image_browser_click_image, true)
                     document.onkeyup = async function(e) {
                         if (!image_browser_active()) {
+                            if (image_browser_debug) console.log("image_browser_start:end")
                             return
                         }
                         const current_tab = image_browser_current_tab()
@@ -400,14 +455,20 @@ function image_browser_start() {
                     cls_btn.addEventListener('click', () => image_browser_renew_page(tab_base_tag), false)
                 }
             })
+            const debug_level_option = gradioApp().getElementById("image_browser_debug_level_option").querySelector("textarea").value
+            if (debug_level_option == 'javascript' && !image_browser_debug) {
+                image_browser_hijack_console_log()
+            }
         }
     })
     mutationObserver.observe(gradioApp(), { childList:true, subtree:true })
     image_browser_started = true
     image_browser_activate_controls()
+    if (image_browser_debug) console.log("image_browser_start:end")
 }
 
 async function image_browser_activate_controls() {
+    if (image_browser_debug) console.log("image_browser_activate_controls:start")
     await image_browser_delay(500)
     container = gradioApp().getElementById("image_browser_tabs_container")
     let controls = container.querySelectorAll('[id*="_control_"]')
@@ -420,9 +481,17 @@ async function image_browser_activate_controls() {
     warnings.forEach(function(warning) {
         warning.innerHTML = "<p>&nbsp"
     })
+    if (image_browser_debug) console.log("image_browser_activate_controls:end")
+}
+
+function image_browser_renew_page(tab_base_tag) {
+    if (image_browser_debug) console.log("image_browser_renew_page:start")
+    gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click()
+    if (image_browser_debug) console.log("image_browser_renew_page:end")
 }
 
 function image_browser_current_tab() {
+    if (image_browser_debug) console.log("image_browser_current_tab:start")
     const tabs = gradioApp().getElementById("image_browser_tabs_container").querySelectorAll('[id$="_image_browser_container"]')
     const tab_base_tags = gradioApp().getElementById("image_browser_tab_base_tags_list")
     const image_browser_tab_base_tags_list = tab_base_tags.querySelector("textarea").value.split(",").sort((a, b) => b.length - a.length)
@@ -430,20 +499,26 @@ function image_browser_current_tab() {
       if (element.style.display === "block") {
         const id = element.id
         const tab_base_tag = image_browser_tab_base_tags_list.find(element => id.startsWith(element)) || null
+        if (image_browser_debug) console.log("image_browser_current_tab:end")
         return tab_base_tag
       }
     }
+    if (image_browser_debug) console.log("image_browser_current_tab:end")
 }
 
 function image_browser_active() {
+    if (image_browser_debug) console.log("image_browser_active:start")
     const ext_active = gradioApp().getElementById("tab_image_browser")
+    if (image_browser_debug) console.log("image_browser_active:end")
     return ext_active && ext_active.style.display !== "none"
 }
 
 function image_browser_keydown() {
+    if (image_browser_debug) console.log("image_browser_keydown:start")
     gradioApp().addEventListener("keydown", function(event) {
         // If we are not on the Image Browser Extension, dont listen for keypresses
         if (!image_browser_active()) {
+            if (image_browser_debug) console.log("image_browser_keydown:end")
             return
         }
 
@@ -455,7 +530,8 @@ function image_browser_keydown() {
             target = event.composedPath()[0]
         }
         if (!target || target.nodeName === "INPUT" || target.nodeName === "TEXTAREA") {
-        return
+            if (image_browser_debug) console.log("image_browser_keydown:end")
+            return
         }
 
         const tab_base_tag = image_browser_current_tab()
@@ -496,6 +572,7 @@ function image_browser_keydown() {
 
         if (event.code == "KeyF" && modifiers_none) {
             if (tab_base_tag == "image_browser_tab_favorites") {
+                if (image_browser_debug) console.log("image_browser_keydown:end")
                 return
             }
             const favoriteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_favorites_btn")
@@ -538,19 +615,23 @@ function image_browser_keydown() {
             image_browser_refresh_current_page_preview()
         }
     })
+    if (image_browser_debug) console.log("image_browser_keydown:end")
 }
 
 function image_browser_touch() {
+    if (image_browser_debug) console.log("image_browser_touch:start")
     let touchStartX = 0
     let touchEndX = 0
     gradioApp().addEventListener("touchstart", function(event) {
         if (!image_browser_active()) {
+            if (image_browser_debug) console.log("image_browser_touch:end")
             return
         }
         touchStartX = event.touches[0].clientX;
     })
     gradioApp().addEventListener("touchend", function(event) {
         if (!image_browser_active()) {
+            if (image_browser_debug) console.log("image_browser_touch:end")
             return
         }
         touchEndX = event.changedTouches[0].clientX
@@ -576,4 +657,5 @@ function image_browser_touch() {
             }
         }
     })
+    if (image_browser_debug) console.log("image_browser_touch:end")
 }

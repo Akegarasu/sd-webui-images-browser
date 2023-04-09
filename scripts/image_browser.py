@@ -410,6 +410,9 @@ def cache_exif(fileinfos):
                 except PermissionError as e:
                     allExif = False
                     logger.warning(f"PermissionError: {e}: {fi_info[0]}")
+                except FileNotFoundError as e:
+                    allExif = False
+                    logger.warning(f"FileNotFoundError: {e}: {fi_info[0]}")
                 except OSError as e:
                     if e.errno == 22:
                         logger.warning(f"Caught OSError with error code 22: {fi_info[0]}")

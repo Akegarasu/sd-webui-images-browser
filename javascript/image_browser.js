@@ -10,12 +10,40 @@ onUiLoaded(image_browser_start_it_up)
 
 async function image_browser_wait_for_webui() { 
     if (image_browser_debug) console.log("image_browser_wait_for_webui:start")
-    await image_browser_delay(100)
-    while (gradioApp().getElementById("setting_sd_model_checkpoint").querySelector(".eta-bar")) {
-        await image_browser_delay(200)
+    await image_browser_delay(500)
+    sd_model = gradioApp().getElementById("setting_sd_model_checkpoint")
+    if (!sd_model.querySelector(".eta-bar")) {
+        image_browser_webui_ready = true
+        image_browser_start()
+    } else {
+        // Set timeout for MutationObserver
+        const startTime = Date.now()
+        // 40 seconds in milliseconds
+        const timeout = 40000
+        const webuiObserver = new MutationObserver(function(mutationsList) {
+            if (image_browser_debug) console.log("webuiObserver:start")
+            let found = false
+            outerLoop: for (let i = 0; i < mutationsList.length; i++) {
+                let mutation = mutationsList[i];
+                if (mutation.type === "childList") {
+                    for (let j = 0; j < mutation.removedNodes.length; j++) {
+                        let node = mutation.removedNodes[j];
+                        if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("eta-bar")) {
+                            found = true
+                            break outerLoop;
+                        }
+                    }
+                }
+            }
+            if (found || (Date.now() - startTime > timeout)) {
+                image_browser_webui_ready = true
+                webuiObserver.disconnect()
+                if (image_browser_debug) console.log("webuiObserver:end")
+                image_browser_start()
+            }
+        })
+        webuiObserver.observe(gradioApp(), { childList:true, subtree:true })
     }
-    image_browser_webui_ready = true
-    image_browser_start()
     if (image_browser_debug) console.log("image_browser_wait_for_webui:end")
 }
 

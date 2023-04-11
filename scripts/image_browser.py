@@ -157,6 +157,7 @@ def debug_levels(arg_value=None, arg_level=None, arg_text=None):
 logger = logging.getLogger(__name__)
 logger_mode = logging.ERROR
 level_value = 0
+capture_level_value = 99
 if hasattr(opts, "image_browser_debug_level"):
     warning_level_value, (warning_level, warning_level_text) = debug_levels(arg_level="warning")
     debug_level_value, (debug_level, debug_level_text) = debug_levels(arg_level="debug")

@@ -72,6 +72,7 @@ np = "negative_prompt: "
 openoutpaint = False
 controlnet = False
 js_dummy_return = None
+log_file = os.path.join(scripts.basedir(), "image_browser.log")
 
 def check_image_browser_active_tabs():
     # Check if Maintenance tab has been added to settings in addition to as a mandatory tab. If so, remove.
@@ -132,7 +133,7 @@ class ImageBrowserTab():
 
 tabs_list = [ImageBrowserTab(tab) for tab in tabs_list]
 
-debug_level_types = ["none", "warning log", "debug log", "javascript log"] #, "capture logs for saving"]
+debug_level_types = ["none", "warning log", "debug log", "javascript log", "capture logs to file"]
 
 debug_levels_list = []
 for i in range(len(debug_level_types)):
@@ -159,6 +160,7 @@ level_value = 0
 if hasattr(opts, "image_browser_debug_level"):
     warning_level_value, (warning_level, warning_level_text) = debug_levels(arg_level="warning")
     debug_level_value, (debug_level, debug_level_text) = debug_levels(arg_level="debug")
+    capture_level_value, (capture_level, capture_level_text) = debug_levels(arg_level="capture")
     level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
     if level_value >= debug_level_value:
         logger_mode = logging.DEBUG
@@ -172,6 +174,15 @@ console_handler.setLevel(logger_mode)
 formatter = logging.Formatter(f'%(asctime)s image_browser.py: %(message)s', datefmt='%Y-%m-%d-%H:%M:%S')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+if level_value >= capture_level_value:
+    try:
+        os.unlink(log_file)
+    except FileNotFoundError:
+        pass
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logger_mode)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 logger.warning(f"debug_level: {level_value}")
 # Debug logging
 if logger.isEnabledFor(logging.DEBUG):
@@ -273,7 +284,7 @@ def tab_select():
     return path_recorder, gr.update(choices=path_recorder_unformatted)
 
 def js_logs_output(js_log):
-    print(js_log)
+    logger.debug(js_log)
     return js_log
 
 def reduplicative_file_move(src, dst):

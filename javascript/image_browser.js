@@ -484,7 +484,7 @@ function image_browser_start() {
                 }
             })
             const debug_level_option = gradioApp().getElementById("image_browser_debug_level_option").querySelector("textarea").value
-            if (debug_level_option == 'javascript' && !image_browser_debug) {
+            if ((debug_level_option == 'javascript' || debug_level_option == 'capture') && !image_browser_debug) {
                 image_browser_hijack_console_log()
             }
         }

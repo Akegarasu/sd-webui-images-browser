@@ -285,7 +285,7 @@ def tab_select():
     return path_recorder, gr.update(choices=path_recorder_unformatted)
 
 def js_logs_output(js_log):
-    logger.debug(js_log)
+    logger.debug(f"js_log: {js_log}")
     return js_log
 
 def reduplicative_file_move(src, dst):
@@ -1274,19 +1274,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     refresh_index_button.click(lambda p, s:(p, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
     img_path_depth.change(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
 
-    turn_page_switch.change(
-        fn=get_image_page, 
-        inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
-        outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
-    ).then(
-        fn=None,
-        _js="image_browser_turnpage",
-        inputs=[tab_base_tag_box],
-        outputs=[js_dummy_return],
-    )
-
     hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
-    turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
 
     sort_order.click(
         fn=sort_order_flip,
@@ -1386,6 +1374,17 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             outputs=[]
         )
     if standard_ui or others_dir:
+        turn_page_switch.change(
+            fn=get_image_page, 
+            inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
+            outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
+        ).then(
+            fn=None,
+            _js="image_browser_turnpage",
+            inputs=[tab_base_tag_box],
+            outputs=[js_dummy_return],
+        )
+        turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
         sendto_openoutpaint.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, image_browser_prompt, image_browser_neg_prompt],
@@ -1463,6 +1462,7 @@ def on_ui_tabs():
                         with gr.Blocks(analytics_enabled=False):
                             create_tab(tab, current_gr_tab)
             gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
+            gr.Checkbox(value=opts.image_browser_swipe, elem_id=f"image_browser_swipe")
 
             javascript_level_value, (javascript_level, javascript_level_text) = debug_levels(arg_level="javascript")
             level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
@@ -1520,6 +1520,7 @@ def on_ui_settings():
         ("image_browser_pages_perload", "images_history_pages_perload", 20, "Minimum number of pages per load"),
         ("image_browser_use_thumbnail", None, False, "Use optimized images in the thumbnail interface (significantly reduces the amount of data transferred)"),
         ("image_browser_thumbnail_size", None, 200, "Size of the thumbnails (px)"),
+        ("image_browser_swipe", None, False, "Swipe left/right navigates to the next image"),
     ]
 
     section = ('image-browser', "Image Browser")

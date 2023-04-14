@@ -416,7 +416,11 @@ function image_browser_init() {
         })
     }
     image_browser_keydown()
-    image_browser_touch()
+
+    const image_browser_swipe = gradioApp().getElementById("image_browser_swipe").getElementsByTagName("input")[0]
+    if (image_browser_swipe.checked) {
+        image_browser_touch()
+    }
     if (image_browser_debug) console.log("image_browser_init:end")
 }
 

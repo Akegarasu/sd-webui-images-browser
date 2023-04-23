@@ -769,7 +769,7 @@ def filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num):
 
     return fileinfos_new
 
-def filter_ranking(cursor, fileinfos, ranking_filter):
+def filter_ranking(cursor, fileinfos, ranking_filter, ranking_filter_min_num, ranking_filter_max_num):
     if ranking_filter == "None":
         cursor.execute('''
         DELETE
@@ -780,6 +780,17 @@ def filter_ranking(cursor, fileinfos, ranking_filter):
             WHERE file = b.file
         )
         ''')
+    elif ranking_filter == "Min-max":
+        cursor.execute('''
+        DELETE
+        FROM work_files
+        WHERE file NOT IN (
+            SELECT file
+            FROM ranking b
+            WHERE file = b.file
+            AND b.ranking BETWEEN ? AND ?
+        )
+        ''', (ranking_filter_min_num, ranking_filter_max_num))
     else:
         cursor.execute('''
         DELETE

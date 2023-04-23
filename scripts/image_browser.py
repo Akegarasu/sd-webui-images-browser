@@ -288,6 +288,15 @@ def js_logs_output(js_log):
     logger.debug(f"js_log: {js_log}")
     return js_log
 
+def ranking_filter_settings(page_index, turn_page_switch, ranking_filter):
+    if ranking_filter == "Min-max":
+        interactive = True
+    else:
+        interactive = False
+    page_index = 1
+    turn_page_switch = -turn_page_switch
+    return page_index, turn_page_switch, gr.update(interactive=interactive), gr.update(interactive=interactive)
+
 def reduplicative_file_move(src, dst):
     def same_name_file(basename, path):
         name, ext = os.path.splitext(basename)
@@ -683,7 +692,7 @@ def exif_search(needle, haystack, use_regex, case_sensitive):
             found = True
     return found
 
-def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
+def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     global current_depth
     logger.debug("get_all_images")
     current_depth = 0
@@ -749,7 +758,23 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
             fileinfos = wib_db.filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num)
             filenames = [finfo[0] for finfo in fileinfos]   
         if ranking_filter != "All":
-            fileinfos = wib_db.filter_ranking(cursor, fileinfos, ranking_filter)
+            ranking_filter_min_num = 1
+            ranking_filter_max_num = 5
+            if ranking_filter == "Min-max":
+                try:
+                    ranking_filter_min_num = int(ranking_filter_min)
+                except ValueError:
+                    ranking_filter_min_num = 0
+                try:
+                    ranking_filter_max_num = int(ranking_filter_max)
+                except ValueError:
+                    ranking_filter_max_num = 0
+                if ranking_filter_min_num < 1:
+                    ranking_filter_min_num = 1
+                if ranking_filter_max_num < 1 or ranking_filter_max_num > 5:
+                    ranking_filter_max_num = 5
+
+            fileinfos = wib_db.filter_ranking(cursor, fileinfos, ranking_filter, ranking_filter_min_num, ranking_filter_max_num)
             filenames = [finfo[0] for finfo in fileinfos]
         
         wib_db.transaction_end(conn, cursor)
@@ -840,7 +865,7 @@ def get_image_thumbnail(image_list):
                 thumbnail_list.append(thumbnail)
     return thumbnail_list
 
-def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
+def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     logger.debug("get_image_page")
     if img_path == "":
         return [], page_index, [],  "", "",  "", 0, "", None, ""
@@ -850,7 +875,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
         tempfile.tempdir = shared.opts.temp_dir
         
     img_path, _ = pure_path(img_path)
-    filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive)
+    filenames = get_all_images(img_path, sort_by, sort_order, keyword, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive)
     page_index = int(page_index)
     length = len(filenames)
     max_page_index = math.ceil(length / num_of_imgs_per_page)
@@ -1090,8 +1115,16 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         with gr.Row():
                                 case_sensitive = gr.Checkbox(value=False, label="case sensitive")
                                 use_regex = gr.Checkbox(value=False, label=r"regex - e.g. ^(?!.*Hires).*$")
-                    with gr.Column() as ranking_filter_panel:
-                        ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None"], label="Ranking filter", interactive=True)
+                    with gr.Box() as ranking_filter_panel:
+                        with gr.Row():
+                            ranking_filter = gr.Radio(value="All", choices=["All", "1", "2", "3", "4", "5", "None", "Min-max"], label="Ranking filter", interactive=True)
+                        with gr.Row():
+                            with gr.Column(scale=2, min_width=20):
+                                ranking_filter_min = gr.Textbox(value="1", label="Minimum ranking", interactive=False)
+                            with gr.Column(scale=2, min_width=20):
+                                ranking_filter_max = gr.Textbox(value="5", label="Maximum ranking", interactive=False)
+                            with gr.Column(scale=4, min_width=20):
+                                gr.Textbox(value="Choose Min-max to activate these controls", label="", interactive=False)
                     with gr.Row() as aesthetic_score_filter_panel:
                         aes_filter_min = gr.Textbox(value="", label="Minimum aesthetic_score")
                         aes_filter_max = gr.Textbox(value="", label="Maximum aesthetic_score")
@@ -1265,10 +1298,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     filename_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     exif_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    ranking_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
+    ranking_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     aes_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     aes_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    ranking_filter.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
     page_index.submit(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
     renew_page.click(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
     refresh_index_button.click(lambda p, s:(p, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
@@ -1280,6 +1314,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         fn=sort_order_flip,
         inputs=[turn_page_switch, sort_order],
         outputs=[page_index, turn_page_switch, sort_order]
+    )
+    ranking_filter.change(
+        fn=ranking_filter_settings,
+        inputs=[page_index, turn_page_switch, ranking_filter],
+        outputs=[page_index, turn_page_switch, ranking_filter_min, ranking_filter_max]
     )
 
     # Others
@@ -1376,7 +1415,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     if standard_ui or others_dir:
         turn_page_switch.change(
             fn=get_image_page, 
-            inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
+            inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
             outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
         ).then(
             fn=None,

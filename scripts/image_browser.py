@@ -154,55 +154,67 @@ def debug_levels(arg_value=None, arg_level=None, arg_text=None):
                 return i, debug_levels_list[i]
 
 # Logging
-logger = logging.getLogger(__name__)
-logger_mode = logging.ERROR
-level_value = 0
-capture_level_value = 99
-if hasattr(opts, "image_browser_debug_level"):
-    warning_level_value, (warning_level, warning_level_text) = debug_levels(arg_level="warning")
-    debug_level_value, (debug_level, debug_level_text) = debug_levels(arg_level="debug")
-    capture_level_value, (capture_level, capture_level_text) = debug_levels(arg_level="capture")
-    level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
-    if level_value >= debug_level_value:
-        logger_mode = logging.DEBUG
-    elif level_value >= warning_level_value:
-        logger_mode = logging.WARNING
-logger.setLevel(logger_mode)
-if (logger.hasHandlers()):
-    logger.handlers.clear()
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logger_mode)
-formatter = logging.Formatter(f'%(asctime)s image_browser.py: %(message)s', datefmt='%Y-%m-%d-%H:%M:%S')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-if level_value >= capture_level_value:
-    try:
-        os.unlink(log_file)
-    except FileNotFoundError:
-        pass
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logger_mode)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-logger.warning(f"debug_level: {level_value}")
-# Debug logging
-if logger.isEnabledFor(logging.DEBUG):
-    logger.debug(f"{sys.executable} {sys.version}")
-    logger.debug(f"{platform.system()} {platform.version()}")
-    try:
-        git = os.environ.get('GIT', "git")
-        commit_hash = os.popen(f"{git} rev-parse HEAD").read()
-    except Exception as e:
-        commit_hash = e
-    logger.debug(f"{commit_hash}")
-    logger.debug(f"Gradio {gr.__version__}")
-    logger.debug(f"{paths.script_path}")
-    with open(cmd_opts.ui_config_file, "r") as f:
-        logger.debug(f.read())
-    with open(cmd_opts.ui_settings_file, "r") as f:
-        logger.debug(f.read())
-    logger.debug(os.path.realpath(__file__))
-    logger.debug([str(tab) for tab in tabs_list])
+logger = None
+def restart_debug(parameter):
+    global logger
+    logger = logging.getLogger(__name__)
+    logger.disabled = False
+    logger_mode = logging.ERROR
+    level_value = 0
+    capture_level_value = 99
+    if hasattr(opts, "image_browser_debug_level"):
+        warning_level_value, (warning_level, warning_level_text) = debug_levels(arg_level="warning")
+        debug_level_value, (debug_level, debug_level_text) = debug_levels(arg_level="debug")
+        capture_level_value, (capture_level, capture_level_text) = debug_levels(arg_level="capture")
+        level_value, (level, level_text) = debug_levels(arg_text=opts.image_browser_debug_level)
+        if level_value >= debug_level_value:
+            logger_mode = logging.DEBUG
+        elif level_value >= warning_level_value:
+            logger_mode = logging.WARNING
+    logger.setLevel(logger_mode)
+    if (logger.hasHandlers()):
+        logger.handlers.clear()
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logger_mode)
+    formatter = logging.Formatter(f'%(asctime)s image_browser.py: %(message)s', datefmt='%Y-%m-%d-%H:%M:%S')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    if level_value >= capture_level_value:
+        try:
+            os.unlink(log_file)
+        except FileNotFoundError:
+            pass
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logger_mode)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    logger.warning(f"debug_level: {level_value}")
+    # Debug logging
+    if logger.getEffectiveLevel() == logging.DEBUG:
+        if parameter != "startup":
+            logging.disable(logging.NOTSET)
+
+        logger.debug(f"{sys.executable} {sys.version}")
+        logger.debug(f"{platform.system()} {platform.version()}")
+        try:
+            git = os.environ.get('GIT', "git")
+            commit_hash = os.popen(f"{git} rev-parse HEAD").read()
+        except Exception as e:
+            commit_hash = e
+        logger.debug(f"{commit_hash}")
+        logger.debug(f"Gradio {gr.__version__}")
+        logger.debug(f"{paths.script_path}")
+        with open(cmd_opts.ui_config_file, "r") as f:
+            logger.debug(f.read())
+        with open(cmd_opts.ui_settings_file, "r") as f:
+            logger.debug(f.read())
+        logger.debug(os.path.realpath(__file__))
+        logger.debug([str(tab) for tab in tabs_list])
+    maint_last_msg = "Debug restarted"
+
+    return parameter, maint_last_msg
+
+restart_debug("startup")
 
 def delete_recycle(filename):
     if opts.image_browser_delete_recycle and send2trash_installed:
@@ -1234,6 +1246,11 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             gr.HTML(visible=False)
     with gr.Row(visible=maint): 
         with gr.Column(scale=1):
+            maint_restart_debug = gr.Button(value="Restart debug")
+        with gr.Column(scale=10):
+            gr.HTML(visible=False)
+    with gr.Row(visible=maint): 
+        with gr.Column(scale=1):
             maint_get_js_logs = gr.Button(value="Get javascript logs")
         with gr.Column(scale=10):
             maint_show_logs = gr.Textbox(label="Javascript logs", lines=10, interactive=False)
@@ -1364,6 +1381,12 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         fn=reapply_ranking,
         show_progress=True,
         inputs=[path_recorder, maint_wait],
+        outputs=[maint_wait, maint_last_msg]
+    )
+    maint_restart_debug.click(
+        fn=restart_debug,
+        show_progress=True,
+        inputs=[maint_wait],
         outputs=[maint_wait, maint_last_msg]
     )
     maint_get_js_logs.click(

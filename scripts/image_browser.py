@@ -425,7 +425,7 @@ def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) 
         if os.path.splitext(fname)[1] in image_ext_list:
             image_list.append(f_info)
         elif stat.S_ISDIR(fstat.st_mode):
-            if (opts.image_browser_with_subdirs and tab_base_tag_box != "Others") or (tab_base_tag_box == "Others" and img_path_depth != 0 and (current_depth < img_path_depth or img_path_depth < 0)):
+            if (opts.image_browser_with_subdirs and tab_base_tag_box != "image_browser_tab_others") or (tab_base_tag_box == "image_browser_tab_others" and img_path_depth != 0 and (current_depth < img_path_depth or img_path_depth < 0)):
                 current_depth = current_depth + 1
                 image_list = traverse_all_files(fname, image_list, tab_base_tag_box, img_path_depth)
                 current_depth = current_depth - 1

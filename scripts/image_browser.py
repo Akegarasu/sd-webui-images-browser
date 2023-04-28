@@ -1115,7 +1115,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                             img_file_info_add = gr.HTML()
 
                 with gr.Column(scale=1): 
-                    with gr.Row(scale=0.5) as sort_panel:
+                    with gr.Row() as sort_panel:
                         sort_by = gr.Dropdown(value="date", choices=["path name", "date", "aesthetic_score", "random", "cfg scale", "steps", "seed", "sampler", "size", "model", "model hash", "ranking"], label="Sort by")
                         sort_order = ToolButton(value=down_symbol)
                     with gr.Row() as filename_search_panel:

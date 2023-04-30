@@ -245,11 +245,11 @@ def img_path_add_remove(img_dir, path_recorder, add_remove, img_path_depth):
         else:
             del path_recorder[img_dir]
             wib_db.delete_path_recorder(img_dir)
-        path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
-        path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: natural_keys(x.lower()))
+    path_recorder_formatted = [value.get("path_display") for key, value in path_recorder.items()]
+    path_recorder_formatted = sorted(path_recorder_formatted, key=lambda x: natural_keys(x.lower()))
 
     if add_remove == "remove":
-        selected = None
+        selected = path_recorder[list(path_recorder.keys())[0]]["path_display"]
     else:
         selected = path_recorder[img_dir]["path_display"]
     return path_recorder, gr.update(choices=path_recorder_formatted, value=selected)

@@ -210,10 +210,23 @@ async function image_browser_gototab(tabname) {
     tabNav = gradioApp().querySelector(".tab-nav")
     const tabNavChildren = tabNav.children
     let tabNavButtonNum
-    for (let i = 0; i < tabNavChildren.length; i++) {
-        if (tabNavChildren[i].tagName === "BUTTON" && tabNavChildren[i].textContent.trim() === tabname) {
-            tabNavButtonNum = i
-            break
+    if (typeof tabname === "number") {
+        let buttonCnt = 0
+        for (let i = 0; i < tabNavChildren.length; i++) {
+            if (tabNavChildren[i].tagName === "BUTTON") {
+                if (buttonCnt === tabname) {
+                    tabNavButtonNum = i
+                    break
+                }
+                buttonCnt++
+            }
+        }
+    } else {
+        for (let i = 0; i < tabNavChildren.length; i++) {
+            if (tabNavChildren[i].tagName === "BUTTON" && tabNavChildren[i].textContent.trim() === tabname) {
+                tabNavButtonNum = i
+                break
+            }
         }
     }
     let tabNavButton = tabNavChildren[tabNavButtonNum]
@@ -281,7 +294,7 @@ function image_browser_openoutpaint_send(tab_base_tag, image_index, image_browse
     if (image_browser_debug) console.log("image_browser_openoutpaint_send:end")
 }
 
-async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, controlnetNum, controlnetType) {
+async function image_browser_controlnet_send(toTabNum, tab_base_tag, image_index, controlnetNum, controlnetType) {
     if (image_browser_debug) console.log("image_browser_controlnet_send:start")
     // Logic originally based on github.com/fkunn1326/openpose-editor
     const dataURL = await image_browser_get_image_for_ext(tab_base_tag, image_index)
@@ -290,10 +303,11 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
     dt.items.add(new File([blob], "ImageBrowser.png", { type: blob.type }))
     const list = dt.files
 
-    await image_browser_gototab(toTab)
-    const current_tab = gradioApp().getElementById("tab_" + toTab)
-    const mode = current_tab.querySelector("#controlnet")
-    let accordion = current_tab.querySelector("#controlnet > .label-wrap > .icon")
+    await image_browser_gototab(toTabNum)
+    const current_tabid = image_browser_webui_current_tab()
+    const current_tab = current_tabid.replace("tab_", "")
+    const tab_controlnet = gradioApp().getElementById(current_tab + "_controlnet")
+    let accordion = tab_controlnet.querySelector("#controlnet > .label-wrap > .icon")
     if (accordion.style.transform.includes("rotate(90deg)")) {
         accordion.click()
         // Wait for click-action to complete
@@ -303,7 +317,7 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
     
         await image_browser_delay(100)
         while (accordion.style.transform.includes("rotate(90deg)")) {
-            accordion = mode.querySelector("#controlnet > .label-wrap > .icon")
+            accordion = tab_controlnet.querySelector("#controlnet > .label-wrap > .icon")
             if (Date.now() - startTime > timeout) {
                 throw new Error("image_browser_controlnet_send/accordion: 60 seconds have passed")
             }
@@ -311,14 +325,14 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
         }
     }    
 
-    let inputContainer = null
+    let inputImage
+    let inputContainer
     if (controlnetType == "single") {
-        try {
-            inputContainer = mode.querySelector('div[data-testid="image"]')
-        } catch (e) {}
+        inputImage = gradioApp().getElementById(current_tab + "_controlnet_ControlNet_input_image")
     } else {
+        const tabs = gradioApp().getElementById(current_tab + "_controlnet_tabs")
         const tab_num = (parseInt(controlnetNum) + 1).toString()
-        tab_button = mode.querySelector(".tab-nav button:nth-child(" + tab_num + ")")
+        tab_button = tabs.querySelector(".tab-nav > button:nth-child(" + tab_num + ")")
         tab_button.click()
         // Wait for click-action to complete
         const startTime = Date.now()
@@ -327,17 +341,18 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
     
         await image_browser_delay(100)
         while (!tab_button.classList.contains("selected")) {
-            tab_button = mode.querySelector(".tab-nav button:nth-child(" + tab_num + ")")
+            tab_button = tabs.querySelector(".tab-nav > button:nth-child(" + tab_num + ")")
             if (Date.now() - startTime > timeout) {
                 throw new Error("image_browser_controlnet_send/tabs: 60 seconds have passed")
             }
             await image_browser_delay(200)
         }
-        try {
-            tab = mode.querySelectorAll(".tabitem")[controlnetNum]
-            inputContainer = tab.querySelector('div[data-testid="image"]')
-        } catch (e) {}
+        inputImage = gradioApp().getElementById(current_tab + "_controlnet_ControlNet-" + controlnetNum.toString() + "_input_image")
     }
+    try {
+        inputContainer = inputImage.querySelector('div[data-testid="image"]')
+    } catch (e) {}
+
     const input = inputContainer.querySelector("input[type='file']")
 
     let clear
@@ -374,11 +389,11 @@ async function image_browser_controlnet_send(toTab, tab_base_tag, image_index, c
 }
 
 function image_browser_controlnet_send_txt2img(tab_base_tag, image_index, controlnetNum, controlnetType) {
-    image_browser_controlnet_send("txt2img", tab_base_tag, image_index, controlnetNum, controlnetType)
+    image_browser_controlnet_send(0, tab_base_tag, image_index, controlnetNum, controlnetType)
 }
   
 function image_browser_controlnet_send_img2img(tab_base_tag, image_index, controlnetNum, controlnetType) {
-    image_browser_controlnet_send("img2img", tab_base_tag, image_index, controlnetNum, controlnetType)
+    image_browser_controlnet_send(1, tab_base_tag, image_index, controlnetNum, controlnetType)
 }
 
 function image_browser_class_add(tab_base_tag) {
@@ -536,6 +551,20 @@ function image_browser_current_tab() {
       }
     }
     if (image_browser_debug) console.log("image_browser_current_tab:end")
+}
+
+function image_browser_webui_current_tab() {
+    if (image_browser_debug) console.log("image_browser_webui_current_tab:start")
+    const tabs = gradioApp().getElementById("tabs").querySelectorAll('[id^="tab_"]')
+    let id
+    for (const element of tabs) {
+      if (element.style.display === "block") {
+        id = element.id
+        break
+      }
+    }
+    if (image_browser_debug) console.log("image_browser_webui_current_tab:end")
+    return id
 }
 
 function image_browser_active() {

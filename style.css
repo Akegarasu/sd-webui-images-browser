@@ -5,3 +5,7 @@
 div[id^="image_browser_tab"][id$="image_browser_gallery"].hide_loading > .svelte-gjihhp {
   display: none;
 }
+
+.image_browser_gallery img {
+  object-fit: scale-down !important;
+}

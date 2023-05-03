@@ -476,9 +476,20 @@ function image_browser_start() {
             image_browser_tab_base_tags_list.forEach(function(tab_base_tag) {
                 image_browser_class_add(tab_base_tag)
                 const tab_gallery_items = gradioApp().querySelectorAll('#' + tab_base_tag + '_image_browser .thumbnail-item')
-                tab_gallery_items.forEach(function(gallery_item) {
+
+                const image_browser_img_info_json = gradioApp().getElementById(tab_base_tag + "_image_browser_img_info").querySelector('[data-testid="textbox"]').value
+                const image_browser_img_info = JSON.parse(image_browser_img_info_json)
+                const filenames = Object.keys(image_browser_img_info)
+
+                tab_gallery_items.forEach(function(gallery_item, i) {
                     gallery_item.removeEventListener('click', image_browser_click_image, true)
                     gallery_item.addEventListener('click', image_browser_click_image, true)
+
+                    const filename = filenames[i]
+                    let x = image_browser_img_info[filename].x
+                    let y = image_browser_img_info[filename].y
+                    gallery_item.title = x + "x" + y
+
                     document.onkeyup = async function(e) {
                         if (!image_browser_active()) {
                             if (image_browser_debug) console.log("image_browser_start:end")

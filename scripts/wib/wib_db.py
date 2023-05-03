@@ -817,3 +817,23 @@ def filter_ranking(cursor, fileinfos, ranking_filter, ranking_filter_min_num, ra
             fileinfos_new.append((file, fileinfos_dict[file]))
     
     return fileinfos_new
+
+def select_x_y(cursor, file):
+    cursor.execute('''
+    SELECT value
+    FROM exif_data
+    WHERE file = ?
+    AND key = 'Size'
+    ''', (file,))
+    size_value = cursor.fetchone()
+
+    if size_value is None:
+        x = "?"
+        y = "?"
+    else:
+        (size,) = size_value
+        parts = size.split("x")
+        x = parts[0]
+        y = parts[1]
+
+    return x, y

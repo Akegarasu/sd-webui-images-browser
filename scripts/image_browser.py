@@ -877,10 +877,20 @@ def get_image_thumbnail(image_list):
                 thumbnail_list.append(thumbnail)
     return thumbnail_list
 
+def set_tooltip_info(image_list):
+    image_browser_img_info = {}
+    conn, cursor = wib_db.transaction_begin()
+    for filename in image_list:
+        x, y = wib_db.select_x_y(cursor, filename)
+        image_browser_img_info[filename] = {"x": x, "y": y}
+    wib_db.transaction_end(conn, cursor)
+    image_browser_img_info_json = json.dumps(image_browser_img_info)
+    return image_browser_img_info_json
+
 def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword, negative_prompt_search, use_regex, case_sensitive):
     logger.debug("get_image_page")
     if img_path == "":
-        return [], page_index, [],  "", "",  "", 0, "", None, ""
+        return [], page_index, [],  "", "",  "", 0, "", None, "", "[]"
 
     # Set temp_dir from webui settings, so gradio uses it
     if shared.opts.temp_dir != "":
@@ -897,6 +907,11 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     idx_frm = (page_index - 1) * num_of_imgs_per_page
     image_list = filenames[idx_frm:idx_frm + num_of_imgs_per_page]
 
+    if opts.image_browser_scan_exif and opts.image_browser_img_tooltips:
+        image_browser_img_info = set_tooltip_info(image_list)
+    else:
+        image_browser_img_info = "[]"
+
     if opts.image_browser_use_thumbnail:
         thumbnail_list = get_image_thumbnail(image_list)
     else:
@@ -909,7 +924,7 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
     load_info += f"{length} images in this directory, divided into {int((length + 1) // num_of_imgs_per_page  + 1)} pages"
     load_info += "</div>"
 
-    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), thumbnail_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list)
+    return filenames, gr.update(value=page_index, label=f"Page Index ({page_index}/{max_page_index})"), thumbnail_list,  "", "",  "", visible_num, load_info, None, json.dumps(image_list), image_browser_img_info
 
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
@@ -1214,6 +1229,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         image_browser_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_prompt")
                         image_browser_neg_prompt = gr.Textbox(elem_id=f"{tab.base_tag}_image_browser_neg_prompt")
                         js_logs = gr.Textbox()
+                        image_browser_img_info = gr.Textbox(value="[]", elem_id=f"{tab.base_tag}_image_browser_img_info")
 
     # Maintenance tab
     with gr.Row(visible=maint): 
@@ -1439,7 +1455,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         turn_page_switch.change(
             fn=get_image_page, 
             inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive], 
-            outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list]
+            outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list, image_browser_img_info]
         ).then(
             fn=None,
             _js="image_browser_turnpage",
@@ -1583,6 +1599,7 @@ def on_ui_settings():
         ("image_browser_use_thumbnail", None, False, "Use optimized images in the thumbnail interface (significantly reduces the amount of data transferred)"),
         ("image_browser_thumbnail_size", None, 200, "Size of the thumbnails (px)"),
         ("image_browser_swipe", None, False, "Swipe left/right navigates to the next image"),
+        ("image_browser_img_tooltips", None, True, "Enable thumbnail tooltips"),
     ]
 
     section = ('image-browser', "Image Browser")

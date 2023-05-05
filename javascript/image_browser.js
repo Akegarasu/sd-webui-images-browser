@@ -466,6 +466,11 @@ function get_js_logs() {
     return log_to_py
 }
 
+function isNumeric(str) {
+    if (typeof str != "string") return false
+    return !isNaN(str) && !isNaN(parseFloat(str))
+}
+
 function image_browser_start() {
     if (image_browser_debug) console.log("image_browser_start:start")
     image_browser_init()
@@ -486,9 +491,13 @@ function image_browser_start() {
                     gallery_item.addEventListener('click', image_browser_click_image, true)
 
                     const filename = filenames[i]
-                    let x = image_browser_img_info[filename].x
-                    let y = image_browser_img_info[filename].y
-                    gallery_item.title = x + "x" + y
+                    try {
+                        let x = image_browser_img_info[filename].x
+                        let y = image_browser_img_info[filename].y
+                        if (isNumeric(x) && isNumeric(y)) {
+                            gallery_item.title = x + "x" + y
+                        }
+                    } catch (e) {}
 
                     document.onkeyup = async function(e) {
                         if (!image_browser_active()) {

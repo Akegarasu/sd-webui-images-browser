@@ -493,6 +493,52 @@ def update_ranking(file, ranking):
     
     return
 
+def select_image_reward_score(cursor, file):
+    cursor.execute('''
+    SELECT value
+    FROM exif_data
+    WHERE file = ?
+    AND key = 'ImageRewardScore'
+    ''', (file,))
+    image_reward_score = cursor.fetchone()
+    if image_reward_score is None:
+        return_image_reward_score = None
+    else:
+        (return_image_reward_score,) = image_reward_score
+    cursor.execute('''
+    SELECT value
+    FROM exif_data
+    WHERE file = ?
+    AND key = 'prompt'
+    ''', (file,))
+    image_reward_prompt = cursor.fetchone()
+    if image_reward_prompt is None:
+        return_image_reward_prompt = None
+    else:
+        (return_image_reward_prompt,) = image_reward_prompt
+    
+    return return_image_reward_score, return_image_reward_prompt
+
+def update_image_reward_score(cursor, file, image_reward_score):
+    cursor.execute('''
+    INSERT OR REPLACE
+    INTO exif_data (file, key, value)
+    VALUES (?, ?, ?)
+    ''', (file, "ImageRewardScore", image_reward_score))
+
+    return
+
+def update_path_recorder(path, depth, path_display):
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT OR REPLACE
+        INTO path_recorder (path, depth, path_display)
+        VALUES (?, ?, ?)
+        ''', (path, depth, path_display))
+    
+    return
+
 def update_path_recorder(path, depth, path_display):
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
@@ -633,9 +679,7 @@ def transaction_end(conn, cursor):
     conn.close()
     return
 
-def update_aes_data(cursor, file, value):
-    key = "aesthetic_score"
-
+def update_exif_data_by_key(cursor, file, key, value):
     cursor.execute('''
     INSERT OR REPLACE
     INTO exif_data (file, key, value)
@@ -692,20 +736,20 @@ def load_exif_data(exif_cache):
 
     return exif_cache
 
-def load_aes_data(aes_cache):
+def load_exif_data_by_key(cache, key1, key2):
     with sqlite3.connect(db_file, timeout=timeout) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT file, value
         FROM exif_data
-        WHERE key in ("aesthetic_score", "Score")
-        ''')
+        WHERE key IN (?, ?)
+        ''', (key1, key2))
 
         rows = cursor.fetchall()
     for row in rows:
-        aes_cache[row[0]] = row[1]
+        cache[row[0]] = row[1]
 
-    return aes_cache
+    return cache
 
 def get_exif_dirs():
     with sqlite3.connect(db_file, timeout=timeout) as conn:
@@ -741,7 +785,12 @@ def fill_work_files(cursor, fileinfos):
 
     return
 
-def filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num):
+def filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num, score_type):
+    if score_type == "aesthetic_score":
+        key = "aesthetic_score"
+    else:
+        key = "ImageRewardScore"
+
     cursor.execute('''
     DELETE
     FROM work_files
@@ -749,10 +798,10 @@ def filter_aes(cursor, fileinfos, aes_filter_min_num, aes_filter_max_num):
         SELECT file
         FROM exif_data b
         WHERE file = b.file
-          AND b.key = 'aesthetic_score'
+          AND b.key = ?
           AND CAST(b.value AS REAL) between ? and ?
     )
-    ''', (aes_filter_min_num, aes_filter_max_num))
+    ''', (key, aes_filter_min_num, aes_filter_max_num))
 
     cursor.execute('''
     SELECT file

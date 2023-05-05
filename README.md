@@ -17,6 +17,7 @@ and restart your stable-diffusion-webui, then you can see the new tab "Image Bro
 Please be aware that when scanning a directory for the first time, the png-cache will be built. This can take several minutes, depending on the amount of images.
 
 ## Recent updates
+- Image Reward scoring
 - Size tooltip for thumbnails
 - Optimized images in the thumbnail interface
 - Send to ControlNet
@@ -56,3 +57,5 @@ Please also check the [discussions](https://github.com/AlUlkesh/stable-diffusion
 ## Credit
 
 Credit goes to the original maintainer of this extension: https://github.com/yfszzx and to major contributors https://github.com/Klace and https://github.com/EllangoK
+
+Image Reward: https://github.com/THUDM/ImageReward

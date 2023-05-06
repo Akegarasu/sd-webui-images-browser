@@ -47,7 +47,9 @@ except ImportError:
 
 try:
     import ImageReward
-    image_reward_installed = True
+    # temporarily deactivated
+    # image_reward_installed = True
+    image_reward_installed = False
 except ImportError:
     print("Image Browser: ImageReward is not installed, cannot be used.")
     image_reward_installed = False

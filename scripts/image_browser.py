@@ -1353,112 +1353,120 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             override_hidden.add(hidden_component_map[item])
 
     change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
-    img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
-    img_path_browser.change(change_dir, inputs=[img_path_browser, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs)
+    img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs, show_progress=opts.image_browser_show_progress)
+    img_path_browser.change(change_dir, inputs=[img_path_browser, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs, show_progress=opts.image_browser_show_progress)
     # img_path_browser.change(browser2path, inputs=[img_path_browser], outputs=[img_path])
-    to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth])
+    to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth], show_progress=opts.image_browser_show_progress)
 
     #delete
     delete.click(
         fn=delete_image,
         inputs=[tab_base_tag_box, delete_num, img_file_name, filenames, image_index, visible_img_num, delete_confirm, turn_page_switch, image_page_list],
-        outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image, image_page_list]
+        outputs=[filenames, delete_num, turn_page_switch, visible_img_num, image_gallery, select_image, image_page_list],
+        show_progress=opts.image_browser_show_progress
     ).then(
         fn=None,
         _js="image_browser_select_image",
         inputs=[tab_base_tag_box, image_index, select_image],
-        outputs=[js_dummy_return]
+        outputs=[js_dummy_return],
+        show_progress=opts.image_browser_show_progress
     )
 
-    to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
+    to_dir_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, to_dir_path], outputs=[collected_warning, filenames, page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
     #turn page
-    first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
-    prev_page.click(lambda p, s: (p - 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
-    end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    filename_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    exif_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    ranking_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    ranking_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    aes_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    aes_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch])
-    page_index.submit(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
-    renew_page.click(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
-    refresh_index_button.click(lambda p, s:(p, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch])
-    img_path_depth.change(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch])
+    first_page.click(lambda s:(1, -s) , inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    next_page.click(lambda p, s: (p + 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    prev_page.click(lambda p, s: (p - 1, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    end_page.click(lambda s: (-1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    load_switch.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    filename_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    exif_keyword_search.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    ranking_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    ranking_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    aes_filter_min.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    aes_filter_max.submit(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    sort_by.change(lambda s:(1, -s), inputs=[turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    page_index.submit(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch], show_progress=opts.image_browser_show_progress)
+    renew_page.click(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch], show_progress=opts.image_browser_show_progress)
+    refresh_index_button.click(lambda p, s:(p, -s), inputs=[page_index, turn_page_switch], outputs=[page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    img_path_depth.change(lambda s: -s, inputs=[turn_page_switch], outputs=[turn_page_switch], show_progress=opts.image_browser_show_progress)
 
     hide_on_thumbnail_view = [delete_panel, button_panel, ranking_panel, to_dir_panel, info_add_panel]
 
     sort_order.click(
         fn=sort_order_flip,
         inputs=[turn_page_switch, sort_order],
-        outputs=[page_index, turn_page_switch, sort_order]
+        outputs=[page_index, turn_page_switch, sort_order],
+        show_progress=opts.image_browser_show_progress
     )
     ranking_filter.change(
         fn=ranking_filter_settings,
         inputs=[page_index, turn_page_switch, ranking_filter],
-        outputs=[page_index, turn_page_switch, ranking_filter_min, ranking_filter_max]
+        outputs=[page_index, turn_page_switch, ranking_filter_min, ranking_filter_max],
+        show_progress=opts.image_browser_show_progress
     )
 
     # Others
     img_path_subdirs_button.click(
         fn=img_path_subdirs_get, 
         inputs=[img_path], 
-        outputs=[img_path_subdirs]
+        outputs=[img_path_subdirs],
+        show_progress=opts.image_browser_show_progress
     )
     img_path_subdirs.change(
         fn=change_dir, 
         inputs=[img_path_subdirs, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], 
-        outputs=change_dir_outputs
+        outputs=change_dir_outputs,
+        show_progress=opts.image_browser_show_progress
     )
     img_path_save_button.click(
         fn=img_path_add_remove, 
         inputs=[img_path, path_recorder, img_path_add, img_path_depth], 
-        outputs=[path_recorder, img_path_browser]
+        outputs=[path_recorder, img_path_browser],
+        show_progress=opts.image_browser_show_progress
     )
     img_path_remove_button.click(
         fn=img_path_add_remove, 
         inputs=[img_path, path_recorder, img_path_remove, img_path_depth],
-        outputs=[path_recorder, img_path_browser]
+        outputs=[path_recorder, img_path_browser],
+        show_progress=opts.image_browser_show_progress
     )
     maint_exif_rebuild.click(
         fn=exif_rebuild,
-        show_progress=True,
         inputs=[maint_wait],
-        outputs=[maint_wait, maint_last_msg]
+        outputs=[maint_wait, maint_last_msg],
+        show_progress=True
     )
     maint_exif_delete_0.click(
         fn=exif_delete_0,
-        show_progress=True,
         inputs=[maint_wait],
-        outputs=[maint_wait, maint_last_msg]
+        outputs=[maint_wait, maint_last_msg],
+        show_progress=True
     )
     maint_update_dirs.click(
         fn=exif_update_dirs,
-        show_progress=True,
         inputs=[maint_update_dirs_from, maint_update_dirs_to, maint_wait],
-        outputs=[maint_wait, maint_last_msg]
+        outputs=[maint_wait, maint_last_msg],
+        show_progress=True
     )
     maint_reapply_ranking.click(
         fn=reapply_ranking,
-        show_progress=True,
         inputs=[path_recorder, maint_wait],
-        outputs=[maint_wait, maint_last_msg]
+        outputs=[maint_wait, maint_last_msg],
+        show_progress=True
     )
     maint_restart_debug.click(
         fn=restart_debug,
-        show_progress=True,
         inputs=[maint_wait],
-        outputs=[maint_wait, maint_last_msg]
+        outputs=[maint_wait, maint_last_msg],
+        show_progress=True
     )
     maint_get_js_logs.click(
         fn=js_logs_output,
         _js="get_js_logs",
-        show_progress=True,
         inputs=[js_logs],
-        outputs=[maint_show_logs]
+        outputs=[maint_show_logs],
+        show_progress=True
     )
 
     # other functions
@@ -1466,16 +1474,16 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery]
     else:
         set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add]
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=set_index_outputs)
-    set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view)
+    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=set_index_outputs, show_progress=opts.image_browser_show_progress)
+    set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view, show_progress=opts.image_browser_show_progress)
 
-    favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch])
-    img_file_name.change(img_file_name_changed, inputs=[img_file_name, favorites_btn, to_dir_btn], outputs=[ranking_current, ranking, collected_warning, favorites_btn, to_dir_btn])
+    favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)
+    img_file_name.change(img_file_name_changed, inputs=[img_file_name, favorites_btn, to_dir_btn], outputs=[ranking_current, ranking, collected_warning, favorites_btn, to_dir_btn], show_progress=opts.image_browser_show_progress)
    
-    hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt])
+    hidden.change(fn=run_pnginfo, inputs=[hidden, img_path, img_file_name], outputs=[info1, img_file_info, info2, image_browser_prompt, image_browser_neg_prompt], show_progress=opts.image_browser_show_progress)
     
     #ranking
-    ranking.change(update_ranking, inputs=[img_file_name, ranking_current, ranking, img_file_info], outputs=[ranking_current, ranking, img_file_info])
+    ranking.change(update_ranking, inputs=[img_file_name, ranking_current, ranking, img_file_info], outputs=[ranking_current, ranking, img_file_info], show_progress=opts.image_browser_show_progress)
         
     try:
         modules.generation_parameters_copypaste.bind_buttons(send_to_buttons, hidden, img_file_info)
@@ -1486,54 +1494,61 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         current_gr_tab.select(
             fn=tab_select, 
             inputs=[],
-            outputs=[path_recorder, to_dir_saved]
+            outputs=[path_recorder, to_dir_saved],
+            show_progress=opts.image_browser_show_progress
         )
         open_folder_button.click(
             fn=lambda: open_folder(dir_name),
             inputs=[],
-            outputs=[]
+            outputs=[],
+            show_progress=opts.image_browser_show_progress
         )
     elif others_dir:
         open_folder_button.click(
             fn=open_folder,
             inputs=[img_path],
-            outputs=[]
+            outputs=[],
+            show_progress=opts.image_browser_show_progress
         )
     if standard_ui or others_dir:
         turn_page_switch.change(
             fn=get_image_page, 
             inputs=[img_path, page_index, filenames, filename_keyword_search, sort_by, sort_order, tab_base_tag_box, img_path_depth, ranking_filter, ranking_filter_min, ranking_filter_max, aes_filter_min, aes_filter_max, score_type, exif_keyword_search, negative_prompt_search, use_regex, case_sensitive, image_reward_button], 
-            outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list, image_browser_img_info, image_reward_button]
+            outputs=[filenames, page_index, image_gallery, img_file_name, img_file_time, img_file_info, visible_img_num, warning_box, hidden, image_page_list, image_browser_img_info, image_reward_button],
+            show_progress=opts.image_browser_show_progress
         ).then(
             fn=None,
             _js="image_browser_turnpage",
             inputs=[tab_base_tag_box],
             outputs=[js_dummy_return],
+            show_progress=opts.image_browser_show_progress
         )
-        turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view)
+        turn_page_switch.change(fn=lambda:(gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)), inputs=None, outputs=hide_on_thumbnail_view, show_progress=opts.image_browser_show_progress)
         sendto_openoutpaint.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, image_browser_prompt, image_browser_neg_prompt],
             outputs=[js_dummy_return],
-            _js="image_browser_openoutpaint_send"
-        )
+            _js="image_browser_openoutpaint_send",
+            show_progress=opts.image_browser_show_progress        )
         sendto_controlnet_txt2img.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, sendto_controlnet_num, sendto_controlnet_type],
             outputs=[js_dummy_return],
-            _js="image_browser_controlnet_send_txt2img"
+            _js="image_browser_controlnet_send_txt2img",
+            show_progress=opts.image_browser_show_progress
         )
         sendto_controlnet_img2img.click(
             fn=None,
             inputs=[tab_base_tag_box, image_index, sendto_controlnet_num, sendto_controlnet_type],
             outputs=[js_dummy_return],
-            _js="image_browser_controlnet_send_img2img"
+            _js="image_browser_controlnet_send_img2img",
+            show_progress=opts.image_browser_show_progress
         )
         image_reward_button.click(
             fn=generate_image_reward,
-            show_progress=True,
             inputs=[filenames, turn_page_switch, aes_filter_min, aes_filter_max],
-            outputs=[turn_page_switch, aes_filter_min, aes_filter_max]
+            outputs=[turn_page_switch, aes_filter_min, aes_filter_max],
+            show_progress=True
         )
 
 def run_pnginfo(image, image_path, image_file_name):
@@ -1655,6 +1670,7 @@ def on_ui_settings():
         ("image_browser_swipe", None, False, "Swipe left/right navigates to the next image"),
         ("image_browser_img_tooltips", None, True, "Enable thumbnail tooltips"),
         ("image_browser_scoring_type", None, "aesthetic_score", "Default scoring type", gr.Dropdown, lambda: {"choices": ["aesthetic_score", "ImageReward Score"]}),
+        ("image_browser_show_progress", None, True, "Show progress indicator"),
     ]
 
     section = ('image-browser', "Image Browser")

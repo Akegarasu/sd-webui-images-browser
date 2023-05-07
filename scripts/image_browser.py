@@ -1476,7 +1476,20 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
         set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add, image_gallery]
     else:
         set_index_outputs = [img_file_name, img_file_time, image_index, hidden, turn_page_switch, img_file_info_add]
-    set_index.click(show_image_info, _js="image_browser_get_current_img", inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery], outputs=set_index_outputs, show_progress=opts.image_browser_show_progress)
+    set_index.click(
+        fn=show_image_info,
+        _js="image_browser_get_current_img",
+        inputs=[tab_base_tag_box, image_index, page_index, filenames, turn_page_switch, image_gallery],
+        outputs=set_index_outputs,
+        show_progress=opts.image_browser_show_progress
+    ).then(
+        fn=None,
+        _js="image_browser_img_show_progress_update",
+        inputs=[],
+        outputs=[js_dummy_return],
+        show_progress=opts.image_browser_show_progress
+    )
+
     set_index.click(fn=lambda:(gr.update(visible=delete_panel not in override_hidden), gr.update(visible=button_panel not in override_hidden), gr.update(visible=ranking_panel not in override_hidden), gr.update(visible=to_dir_panel not in override_hidden), gr.update(visible=info_add_panel not in override_hidden)), inputs=None, outputs=hide_on_thumbnail_view, show_progress=opts.image_browser_show_progress)
 
     favorites_btn.click(save_image, inputs=[img_file_name, filenames, page_index, turn_page_switch, favorites_path], outputs=[collected_warning, filenames, page_index, turn_page_switch], show_progress=opts.image_browser_show_progress)

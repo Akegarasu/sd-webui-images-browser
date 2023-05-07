@@ -3,6 +3,7 @@ let image_browser_webui_ready = false
 let image_browser_started = false
 let image_browser_console_log = ""
 let image_browser_debug = false
+let image_browser_img_show_in_progress = false
 
 function image_browser_delay(ms){return new Promise(resolve => setTimeout(resolve, ms))}
 
@@ -551,6 +552,10 @@ async function image_browser_activate_controls() {
     if (image_browser_debug) console.log("image_browser_activate_controls:end")
 }
 
+function image_browser_img_show_progress_update() {
+    image_browser_img_show_in_progress = false
+}
+
 function image_browser_renew_page(tab_base_tag) {
     if (image_browser_debug) console.log("image_browser_renew_page:start")
     gradioApp().getElementById(tab_base_tag + '_image_browser_renew_page').click()
@@ -592,6 +597,24 @@ function image_browser_active() {
     const ext_active = gradioApp().getElementById("tab_image_browser")
     if (image_browser_debug) console.log("image_browser_active:end")
     return ext_active && ext_active.style.display !== "none"
+}
+
+async function image_browser_delete_key(tab_base_tag) {
+    // Wait for img_show to end
+    const startTime = Date.now()
+    // 60 seconds in milliseconds
+    const timeout = 60000
+    
+    await image_browser_delay(100)
+    while (image_browser_img_show_in_progress) {
+        if (Date.now() - startTime > timeout) {
+            throw new Error("image_browser_delete_key: 60 seconds have passed")
+        }
+        await image_browser_delay(200)
+    }
+
+    const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
+    deleteBtn.dispatchEvent(new Event("click"))
 }
 
 function image_browser_keydown() {
@@ -666,8 +689,7 @@ function image_browser_keydown() {
         }
 
         if (event.code == "Delete" && modifiers_none) {
-            const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
-            deleteBtn.dispatchEvent(new Event("click"))
+            image_browser_delete_key(tab_base_tag)
         }
 
         if (event.code == "ArrowLeft" && modifiers_pressed) {
@@ -676,6 +698,7 @@ function image_browser_keydown() {
         }
 
         if (event.code == "ArrowLeft" && modifiers_none) {
+            image_browser_img_show_in_progress = true
             const tab_base_tag = image_browser_current_tab()
             const set_btn = gradioApp().querySelector(`#${tab_base_tag}_image_browser .image_browser_set_index`)
             const curr_idx = parseInt(set_btn.getAttribute("img_index"))
@@ -689,6 +712,7 @@ function image_browser_keydown() {
         }
 
         if (event.code == "ArrowRight" && modifiers_none) {
+            image_browser_img_show_in_progress = true
             const tab_base_tag = image_browser_current_tab()
             const set_btn = gradioApp().querySelector(`#${tab_base_tag}_image_browser .image_browser_set_index`)
             const curr_idx = parseInt(set_btn.getAttribute("img_index"))

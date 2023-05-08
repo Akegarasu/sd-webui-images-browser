@@ -1679,7 +1679,7 @@ def on_ui_settings():
         ("image_browser_delete_message", "images_delete_message", True, "Print image deletion messages to the console"),
         ("image_browser_txt_files", "images_txt_files", True, "Move/Copy/Delete matching .txt files"),
         ("image_browser_debug_level", None, debug_level_choices[0], "Debug level", gr.Dropdown, lambda: {"choices": debug_level_choices}),
-        ("image_browser_delete_recycle", "images_delete_recycle", False, "Use recycle bin when deleting images"),
+        ("image_browser_delete_recycle", "images_delete_recycle", True, "Use recycle bin when deleting images"),
         ("image_browser_scan_exif", "images_scan_exif", True, "Scan Exif-/.txt-data (initially slower, but required for many features to work)"),
         ("image_browser_mod_shift", None, False, "Change CTRL keybindings to SHIFT"),
         ("image_browser_mod_ctrl_shift", None, False, "or to CTRL+SHIFT"),

@@ -211,10 +211,18 @@ def restart_debug(parameter):
         logger.debug(f"{platform.system()} {platform.version()}")
         try:
             git = os.environ.get('GIT', "git")
-            commit_hash = os.popen(f"{git} rev-parse HEAD").read()
+            webui_commit_hash = os.popen(f"{git} rev-parse HEAD").read().strip()
+            sm_hashes = os.popen(f"{git} submodule").read()
+            sm_hashes_lines = sm_hashes.splitlines()
+            for sm_hashes_line in sm_hashes_lines:
+                if "images-browser" in sm_hashes_line.lower():
+                    image_browser_commit_hash = sm_hashes_line[1:41]
+                    break            
         except Exception as e:
-            commit_hash = e
-        logger.debug(f"{commit_hash}")
+            webui_commit_hash = e
+            image_browser_commit_hash = e
+        logger.debug(f"Webui {webui_commit_hash}")
+        logger.debug(f"Image Browser {image_browser_commit_hash}")
         logger.debug(f"Gradio {gr.__version__}")
         logger.debug(f"{paths.script_path}")
         with open(cmd_opts.ui_config_file, "r") as f:

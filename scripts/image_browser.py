@@ -1631,6 +1631,7 @@ def on_ui_tabs():
                     with gr.Tab(tab.name, elem_id=f"{tab.base_tag}_image_browser_container") as current_gr_tab:
                         with gr.Blocks(analytics_enabled=False):
                             create_tab(tab, current_gr_tab)
+            gr.Checkbox(value=opts.image_browser_preload, elem_id="image_browser_preload", visible=False)
             gr.Textbox(",".join( [tab.base_tag for tab in tabs_list] ), elem_id="image_browser_tab_base_tags_list", visible=False)
             gr.Checkbox(value=opts.image_browser_swipe, elem_id=f"image_browser_swipe")
 
@@ -1675,6 +1676,7 @@ def on_ui_settings():
         ("image_browser_active_tabs", None, ", ".join(default_tab_options), active_tabs_description),
         ("image_browser_hidden_components", None, [], "Select components to hide", DropdownMulti, lambda: {"choices": components_list}),
         ("image_browser_with_subdirs", "images_history_with_subdirs", True, "Include images in sub directories"),
+        ("image_browser_preload", "images_history_preload", False, "Preload images at startup for first tab"),
         ("image_browser_copy_image", "images_copy_image", False, "Move buttons copy instead of move"),
         ("image_browser_delete_message", "images_delete_message", True, "Print image deletion messages to the console"),
         ("image_browser_txt_files", "images_txt_files", True, "Move/Copy/Delete matching .txt files"),

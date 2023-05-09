@@ -430,6 +430,10 @@ function image_browser_init() {
             btn.removeEventListener('click', () => btnClickHandler(tab_base_tag, btn))
             btn.addEventListener('click', () => btnClickHandler(tab_base_tag, btn))
         })
+        //preload
+        if (gradioApp().getElementById("image_browser_preload").querySelector("input").checked) {
+            setTimeout(function(){tab_btns[0].click()}, 100)
+       }
     }
     image_browser_keydown()
 

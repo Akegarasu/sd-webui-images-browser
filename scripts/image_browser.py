@@ -214,6 +214,7 @@ def restart_debug(parameter):
             webui_commit_hash = os.popen(f"{git} rev-parse HEAD").read().strip()
             sm_hashes = os.popen(f"{git} submodule").read()
             sm_hashes_lines = sm_hashes.splitlines()
+            image_browser_commit_hash = f"image_browser_commit_hash not found: {sm_hashes}"
             for sm_hashes_line in sm_hashes_lines:
                 if "images-browser" in sm_hashes_line.lower():
                     image_browser_commit_hash = sm_hashes_line[1:41]

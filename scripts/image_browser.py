@@ -1130,7 +1130,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     with gr.Row(visible=others_dir):
         with gr.Column(scale=10):
-            img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory", interactive=others_dir)
+            suffix = "" if others_dir else tab.name
+            img_path = gr.Textbox(dir_name, label="Images directory"+suffix, placeholder="Input images directory", interactive=others_dir)
         with gr.Column(scale=1):
             img_path_depth = gr.Number(value="0", label="Sub directory depth")
         with gr.Column(scale=1):

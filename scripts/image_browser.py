@@ -1130,10 +1130,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     with gr.Row(visible=others_dir):
         with gr.Column(scale=10):
-            if others_dir:
-                img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory")
-            else:
-                img_path = gr.State(dir_name)
+            suffix = "" if others_dir else tab.name
+            img_path = gr.Textbox(dir_name, label="Images directory"+suffix, placeholder="Input images directory", interactive=others_dir)
         with gr.Column(scale=1):
             img_path_depth = gr.Number(value="0", label="Sub directory depth")
         with gr.Column(scale=1):
@@ -1367,8 +1365,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
             override_hidden.add(hidden_component_map[item])
 
     change_dir_outputs = [warning_box, main_panel, img_path_browser, path_recorder, load_switch, img_path, img_path_depth]
-    if others_dir:
-        img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs, show_progress=opts.image_browser_show_progress)
+    img_path.submit(change_dir, inputs=[img_path, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs, show_progress=opts.image_browser_show_progress)
     img_path_browser.change(change_dir, inputs=[img_path_browser, path_recorder, load_switch, img_path_browser, img_path_depth, img_path], outputs=change_dir_outputs, show_progress=opts.image_browser_show_progress)
     # img_path_browser.change(browser2path, inputs=[img_path_browser], outputs=[img_path])
     to_dir_saved.change(change_dir, inputs=[to_dir_saved, path_recorder, to_dir_load_switch, to_dir_saved, img_path_depth, to_dir_path], outputs=[warning_box, main_panel, to_dir_saved, path_recorder, to_dir_load_switch, to_dir_path, img_path_depth], show_progress=opts.image_browser_show_progress)

@@ -96,7 +96,8 @@ def check_image_browser_active_tabs():
             shared.opts.save(shared.config_filename)
 
 favorite_tab_name = "Favorites"
-default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
+default_output_path = "outputs"
+default_tab_options = ["All", "txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
 check_image_browser_active_tabs()
 tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
 try:
@@ -106,6 +107,7 @@ except AttributeError:
     tabs_list.append("Maintenance")  # mandatory tab
 
 path_maps = {
+    "All": opts.outdir_samples or default_output_path,
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
     "img2img": opts.outdir_samples or opts.outdir_img2img_samples,
     "txt2img-grids": opts.outdir_grids or opts.outdir_txt2img_grids,
@@ -113,6 +115,7 @@ path_maps = {
     "Extras": opts.outdir_samples or opts.outdir_extras_samples,
     favorite_tab_name: opts.outdir_save
 }
+
 
 class ImageBrowserTab():
 

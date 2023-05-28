@@ -96,10 +96,9 @@ def check_image_browser_active_tabs():
             shared.opts.save(shared.config_filename)
 
 favorite_tab_name = "Favorites"
-default_output_path = "outputs"
 default_tab_options = ["All", "txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
 check_image_browser_active_tabs()
-tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") else default_tab_options
+tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") and opts.image_browser_active_tabs != ""  else default_tab_options
 try:
     if opts.image_browser_enable_maint:
         tabs_list.append("Maintenance")  # mandatory tab
@@ -107,7 +106,6 @@ except AttributeError:
     tabs_list.append("Maintenance")  # mandatory tab
 
 path_maps = {
-    "All": opts.outdir_samples or default_output_path,
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
     "img2img": opts.outdir_samples or opts.outdir_img2img_samples,
     "txt2img-grids": opts.outdir_grids or opts.outdir_txt2img_grids,
@@ -115,7 +113,6 @@ path_maps = {
     "Extras": opts.outdir_samples or opts.outdir_extras_samples,
     favorite_tab_name: opts.outdir_save
 }
-
 
 class ImageBrowserTab():
 
@@ -450,7 +447,7 @@ def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) 
         if os.path.splitext(fname)[1] in image_ext_list:
             image_list.append(f_info)
         elif stat.S_ISDIR(fstat.st_mode):
-            if (opts.image_browser_with_subdirs and tab_base_tag_box != "image_browser_tab_others") or (tab_base_tag_box == "image_browser_tab_others" and img_path_depth != 0 and (current_depth < img_path_depth or img_path_depth < 0)):
+            if (opts.image_browser_with_subdirs and tab_base_tag_box != "image_browser_tab_others") or (tab_base_tag_box == "image_browser_tab_all") or (tab_base_tag_box == "image_browser_tab_others" and img_path_depth != 0 and (current_depth < img_path_depth or img_path_depth < 0)):
                 current_depth = current_depth + 1
                 image_list = traverse_all_files(fname, image_list, tab_base_tag_box, img_path_depth)
                 current_depth = current_depth - 1
@@ -739,7 +736,17 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     global current_depth
     logger.debug("get_all_images")
     current_depth = 0
-    fileinfos = traverse_all_files(dir_name, [], tab_base_tag_box, img_path_depth)
+    fileinfos = []
+    if tab_base_tag_box == "image_browser_tab_all":
+        for path in path_maps.values():
+            list1 = fileinfos
+            list2 = traverse_all_files(path, [], tab_base_tag_box, img_path_depth)
+            tmp = dict(list1)
+            tmp.update(dict(list2))
+            fileinfos = list(tmp.items())
+    else:
+        fileinfos = traverse_all_files(dir_name, [], tab_base_tag_box, img_path_depth)
+    
     keyword = keyword.strip(" ")
     
     if opts.image_browser_scan_exif:

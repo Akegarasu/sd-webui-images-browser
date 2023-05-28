@@ -13,3 +13,11 @@ div[id^="image_browser_tab"][id$="image_browser_gallery"].hide_loading > .svelte
 .image_browser_gallery img {
   object-fit: scale-down !important;
 }
+
+/* Workaround until gradio version is updated to a version that fixes it
+   see https://github.com/gradio-app/gradio/issues/1590
+*/
+.thumbnail-item > img {
+  width: auto !important;
+  height: auto !important;
+}

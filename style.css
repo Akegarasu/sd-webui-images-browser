@@ -14,6 +14,21 @@ div[id^="image_browser_tab"][id$="image_browser_gallery"].hide_loading > .svelte
   object-fit: scale-down !important;
 }
 
+/* hack to fix the alignment of the page index, refresh, and delete buttons*/
+div[id$='control_image_browser_page_index'] {
+  margin-top: -20px !important;
+  margin-left: 10px !important;
+  display: grid;
+  justify-content: end;
+}
+button[id$='_control_image_browser_refresh_index']{
+  align-self: start !important;
+  height: 2em !important;
+}
+button[id$='_image_browser_del_img_btn'] {
+  margin-top: 22px !important;
+}
+
 /* Workaround until gradio version is updated to a version that fixes it
    see https://github.com/gradio-app/gradio/issues/1590
 */

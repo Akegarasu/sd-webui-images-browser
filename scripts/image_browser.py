@@ -1131,8 +1131,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     with gr.Row(visible=others_dir):
         with gr.Column(scale=10):
-            suffix = "" if others_dir else tab.name
-            img_path = gr.Textbox(dir_name, label="Images directory"+suffix, placeholder="Input images directory", interactive=others_dir)
+            img_path = gr.Textbox(dir_name, label="Images directory", placeholder="Input images directory", interactive=others_dir)
         with gr.Column(scale=1):
             img_path_depth = gr.Number(value="0", label="Sub directory depth")
         with gr.Column(scale=1):
@@ -1645,6 +1644,11 @@ def on_ui_tabs():
             else:
                 debug_level_option = ""
             gr.Textbox(value=debug_level_option, elem_id="image_browser_debug_level_option", visible=False)
+
+    # Webui's ui_loadsave uses gradio labels as keys, this does not work with image browser, as the same labels are used on different tabs
+    # For this reason the do_not_save_to_config attribute is added to each gradio element
+    for key, value in image_browser.blocks.items():
+        setattr(value, "do_not_save_to_config", True)
 
     return (image_browser, "Image Browser", "image_browser"),
 

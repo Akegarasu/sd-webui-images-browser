@@ -741,7 +741,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
     if tab_base_tag_box == "image_browser_tab_all":
         for path in path_maps.values():
             list1 = fileinfos
-            list2 = traverse_all_files(path, [], tab_base_tag_box, img_path_depth)
+            list2 = traverse_all_files(os.path.realpath(path), [], tab_base_tag_box, img_path_depth)
             tmp = dict(list1)
             tmp.update(dict(list2))
             fileinfos = list(tmp.items())

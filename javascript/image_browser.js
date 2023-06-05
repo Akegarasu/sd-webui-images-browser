@@ -358,7 +358,7 @@ async function image_browser_controlnet_send(toTabNum, tab_base_tag, image_index
 
     let clear
     try {
-        clear = inputContainer.querySelector("button[aria-label='Clear']")
+        clear = inputContainer.querySelector("button[aria-label='Remove Image']")
         if (clear) {
             clear.click()
         }
@@ -372,7 +372,7 @@ async function image_browser_controlnet_send(toTabNum, tab_base_tag, image_index
         // 60 seconds in milliseconds
         const timeout = 60000
         while (clear) {
-            clear = inputContainer.querySelector("button[aria-label='Clear']")
+            clear = inputContainer.querySelector("button[aria-label='Remove Image']")
             if (Date.now() - startTime > timeout) {
                 throw new Error("image_browser_controlnet_send/clear: 60 seconds have passed")
             }

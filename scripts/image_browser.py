@@ -1130,7 +1130,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     if standard_ui:
         dir_name = str(Path(dir_name))
-        if not os.path.exists(dir_name):
+        if not os.path.exists(dir_name) and tab.name != "All":
             os.makedirs(dir_name)
 
     with gr.Row():                 
@@ -1233,10 +1233,13 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                     with gr.Row() as filetime_panel:
                         img_file_time= gr.HTML()
                     with gr.Row() as open_folder_panel:
-                        open_folder_button = gr.Button(folder_symbol, visible=standard_ui or others_dir)
-                        gr.HTML("&nbsp")
-                        gr.HTML("&nbsp")
-                        gr.HTML("&nbsp")
+                        if tab.name == "All":
+                            open_folder_button = gr.Button(folder_symbol, visible=False)
+                        else:
+                            open_folder_button = gr.Button(folder_symbol, visible=standard_ui or others_dir)
+                            gr.HTML("&nbsp")
+                            gr.HTML("&nbsp")
+                            gr.HTML("&nbsp")
                     with gr.Row(elem_id=f"{tab.base_tag}_image_browser_button_panel", visible=False) as button_panel:
                         with gr.Column():
                             with gr.Row():

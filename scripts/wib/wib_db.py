@@ -5,7 +5,7 @@ import sqlite3
 from modules import scripts
 from PIL import Image
 
-version = 6
+version = 7
 
 path_recorder_file = os.path.join(scripts.basedir(), "path_recorder.txt")
 aes_cache_file = os.path.join(scripts.basedir(), "aes_scores.json")
@@ -302,6 +302,18 @@ def get_version():
     
     return db_version
 
+def get_last_default_tab():
+    with sqlite3.connect(db_file, timeout=timeout) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        SELECT value
+        FROM db_data
+        WHERE key = 'last_default_tab'
+        ''',)
+        last_default_tab = cursor.fetchone()
+    
+    return last_default_tab
+
 def migrate_path_recorder_dirs(cursor):
     cursor.execute('''
     SELECT path, path_display
@@ -434,6 +446,8 @@ def check():
         migrate_filehash(cursor, db_version[0])
     if db_version[0] <= "5":
         migrate_work_files(cursor)
+    if db_version[0] <= "6":
+        update_db_data(cursor, "last_default_tab", "Others")
         update_db_data(cursor, "version", version)
         print(f"Image Browser: Database upgraded from version {db_version[0]} to version {version}")
     transaction_end(conn, cursor)

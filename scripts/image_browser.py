@@ -1130,7 +1130,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
 
     if standard_ui:
         dir_name = str(Path(dir_name))
-        if not os.path.exists(dir_name):
+        if not os.path.exists(dir_name) and os.path.basename(os.path.normpath(dir_name)) != "All":
             os.makedirs(dir_name)
 
     with gr.Row():                 

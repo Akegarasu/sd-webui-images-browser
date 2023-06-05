@@ -85,23 +85,25 @@ js_dummy_return = None
 log_file = os.path.join(scripts.basedir(), "image_browser.log")
 image_reward_model = None
 
-def check_image_browser_active_tabs():
-    # Check if Maintenance tab has been added to settings in addition to as a mandatory tab. If so, remove.
-    if hasattr(opts, "image_browser_active_tabs"):
-        active_tabs_no_maint = re.sub(r",\s*Maintenance", "", opts.image_browser_active_tabs)
-        if len(active_tabs_no_maint) != len(opts.image_browser_active_tabs):
-            shared.opts.__setattr__("image_browser_active_tabs", active_tabs_no_maint)
-            shared.opts.save(shared.config_filename)
+db_version = wib_db.check()
 
 favorite_tab_name = "Favorites"
-default_tab_options = ["All", "txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others"]
+default_tab_options = ["txt2img", "img2img", "txt2img-grids", "img2img-grids", "Extras", favorite_tab_name, "Others", "All", "Maintenance"]
+
+def check_image_browser_active_tabs():
+    last_default_tab = wib_db.get_last_default_tab()
+    if last_default_tab[0] == "Others":
+        # New tabs don't exist yet in image_browser_active_tabs, add them
+        conn, cursor = wib_db.transaction_begin()
+        wib_db.update_db_data(cursor, "last_default_tab", "Maintenance")
+        wib_db.transaction_end(conn, cursor)
+        if hasattr(opts, "image_browser_active_tabs"):
+            active_and_new_tabs = f"{opts.image_browser_active_tabs}, All, Maintenance"
+            shared.opts.__setattr__("image_browser_active_tabs", active_and_new_tabs)
+            shared.opts.save(shared.config_filename)
+
 check_image_browser_active_tabs()
 tabs_list = [tab.strip() for tab in chain.from_iterable(csv.reader(StringIO(opts.image_browser_active_tabs))) if tab] if hasattr(opts, "image_browser_active_tabs") and opts.image_browser_active_tabs != ""  else default_tab_options
-try:
-    if opts.image_browser_enable_maint:
-        tabs_list.append("Maintenance")  # mandatory tab
-except AttributeError:
-    tabs_list.append("Maintenance")  # mandatory tab
 
 path_maps = {
     "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
@@ -230,6 +232,7 @@ def restart_debug(parameter):
             logger.debug(f.read())
         logger.debug(os.path.realpath(__file__))
         logger.debug([str(tab) for tab in tabs_list])
+        logger.debug(f"db_version: {db_version}")
     maint_last_msg = "Debug restarted"
 
     return parameter, maint_last_msg
@@ -1107,8 +1110,6 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     path_recorder_unformatted = []
     
     if init:
-        db_version = wib_db.check()
-        logger.debug(f"db_version: {db_version}")
         exif_cache = wib_db.load_exif_data(exif_cache)
         aes_cache = wib_db.load_exif_data_by_key(aes_cache, "aesthetic_score", "Score")
         image_reward_cache = wib_db.load_exif_data_by_key(image_reward_cache, "ImageRewardScore", "ImageRewardScore")
@@ -1702,7 +1703,6 @@ def on_ui_settings():
         ("image_browser_scan_exif", "images_scan_exif", True, "Scan Exif-/.txt-data (initially slower, but required for many features to work)"),
         ("image_browser_mod_shift", None, False, "Change CTRL keybindings to SHIFT"),
         ("image_browser_mod_ctrl_shift", None, False, "or to CTRL+SHIFT"),
-        ("image_browser_enable_maint", None, True, "Enable Maintenance tab"),
         ("image_browser_ranking_pnginfo", None, False, "Save ranking in image's pnginfo"),
         ("image_browser_page_columns", "images_history_page_columns", 6, "Number of columns on the page"),
         ("image_browser_page_rows", "images_history_page_rows", 6, "Number of rows on the page"),

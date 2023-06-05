@@ -17,6 +17,7 @@ and restart your stable-diffusion-webui, then you can see the new tab "Image Bro
 Please be aware that when scanning a directory for the first time, the png-cache will be built. This can take several minutes, depending on the amount of images.
 
 ## Recent updates
+- "All"-tab showing all the images from all tabs combined
 - Image Reward scoring
 - Size tooltip for thumbnails
 - Optimized images in the thumbnail interface

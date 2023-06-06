@@ -117,7 +117,6 @@ async function image_browser_get_current_img(tab_base_tag, img_index, page_index
     if (image_browser_debug) console.log("image_browser_get_current_img:start")
     await image_browser_lock("image_browser_get_current_img")
     img_index = gradioApp().getElementById(tab_base_tag + '_image_browser_set_index').getAttribute("img_index")
-    gradioApp().dispatchEvent(new Event("image_browser_get_current_img"))
     await image_browser_unlock()
     if (image_browser_debug) console.log("image_browser_get_current_img:end")
     return [
@@ -167,15 +166,6 @@ async function image_browser_turnpage(tab_base_tag) {
     if (image_browser_debug) console.log("image_browser_turnpage:end")
 }
 
-const image_browser_get_current_img_handler = (del_img_btn) => {
-    if (image_browser_debug) console.log("image_browser_get_current_img_handler:start")
-    // Prevent delete button spam
-    del_img_btn.style.pointerEvents = "auto"
-    del_img_btn.style.cursor = "default"
-    del_img_btn.style.opacity = "1"
-    if (image_browser_debug) console.log("image_browser_get_current_img_handler:end")
-}
-
 async function image_browser_select_image(tab_base_tag, img_index, select_image) {
     if (image_browser_debug) console.log("image_browser_select_image:start")
     if (select_image) {
@@ -196,10 +186,6 @@ async function image_browser_select_image(tab_base_tag, img_index, select_image)
             curr_image.click()
         }
         await image_browser_unlock()
-
-        // Prevent delete button spam
-        gradioApp().removeEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
-        gradioApp().addEventListener("image_browser_get_current_img", () => image_browser_get_current_img_handler(del_img_btn))
     }
     if (image_browser_debug) console.log("image_browser_select_image:end")
 }
@@ -556,8 +542,15 @@ async function image_browser_activate_controls() {
     if (image_browser_debug) console.log("image_browser_activate_controls:end")
 }
 
-function image_browser_img_show_progress_update() {
+function image_browser_img_show_progress_update(tab_base_tag) {
+    if (image_browser_debug) console.log("image_browser_img_show_progress_update:start")
     image_browser_img_show_in_progress = false
+    // Prevent delete button spam
+    const del_img_btn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
+    del_img_btn.style.pointerEvents = "auto"
+    del_img_btn.style.cursor = "default"
+    del_img_btn.style.opacity = "1"
+    if (image_browser_debug) console.log("image_browser_img_show_progress_update:end")
 }
 
 function image_browser_renew_page(tab_base_tag) {
@@ -604,20 +597,21 @@ function image_browser_active() {
 }
 
 async function image_browser_delete_key(tab_base_tag) {
-    // Wait for img_show to end
+    const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
+
+    // Wait for img_show to end and deleteBtn to be active again
     const startTime = Date.now()
     // 60 seconds in milliseconds
     const timeout = 60000
     
     await image_browser_delay(100)
-    while (image_browser_img_show_in_progress) {
+    while (image_browser_img_show_in_progress || deleteBtn.style.pointerEvents == "none") {
         if (Date.now() - startTime > timeout) {
-            throw new Error("image_browser_delete_key: 60 seconds have passed")
+            throw new Error("image_browser_delete_key: 60 seconds have passed / " + image_browser_img_show_in_progress + " / " + deleteBtn.style.pointerEvents)
         }
         await image_browser_delay(200)
     }
 
-    const deleteBtn = gradioApp().getElementById(tab_base_tag + "_image_browser_del_img_btn")
     deleteBtn.dispatchEvent(new Event("click"))
 }
 

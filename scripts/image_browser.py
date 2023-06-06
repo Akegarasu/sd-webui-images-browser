@@ -1509,7 +1509,7 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     ).then(
         fn=None,
         _js="image_browser_img_show_progress_update",
-        inputs=[],
+        inputs=[tab_base_tag_box],
         outputs=[js_dummy_return],
         show_progress=opts.image_browser_show_progress
     )

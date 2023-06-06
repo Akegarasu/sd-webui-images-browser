@@ -427,6 +427,7 @@ def check():
         print("Image Browser: Creating database")
         create_db(cursor)
         update_db_data(cursor, "version", version)
+        update_db_data(cursor, "last_default_tab", "Maintenance")
         migrate_path_recorder(cursor)
         migrate_exif_data(cursor)
         migrate_ranking(cursor)
@@ -448,6 +449,7 @@ def check():
         migrate_work_files(cursor)
     if db_version[0] <= "6":
         update_db_data(cursor, "last_default_tab", "Others")
+
         update_db_data(cursor, "version", version)
         print(f"Image Browser: Database upgraded from version {db_version[0]} to version {version}")
     transaction_end(conn, cursor)

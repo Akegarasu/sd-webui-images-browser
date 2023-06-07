@@ -577,7 +577,7 @@ function image_browser_current_tab() {
 
 function image_browser_webui_current_tab() {
     if (image_browser_debug) console.log("image_browser_webui_current_tab:start")
-    const tabs = gradioApp().getElementById("tabs").querySelectorAll('[id^="tab_"]')
+    const tabs = gradioApp().querySelectorAll("#tabs > [id^='tab_']")
     let id
     for (const element of tabs) {
       if (element.style.display === "block") {

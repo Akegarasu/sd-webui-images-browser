@@ -62,12 +62,8 @@ components_list = ["Sort by", "Filename keyword search", "EXIF keyword search", 
 num_of_imgs_per_page = 0
 loads_files_num = 0
 image_ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".svg"]
-finfo_aes = {}
-finfo_image_reward = {}
 exif_cache = {}
-finfo_exif = {}
 aes_cache = {}
-image_reward_cache = {}
 none_select = "Nothing selected"
 refresh_symbol = '\U0001f504'  # 🔄
 up_symbol = '\U000025b2'  # ▲
@@ -226,10 +222,13 @@ def restart_debug(parameter):
         logger.debug(f"Image Browser {image_browser_commit_hash}")
         logger.debug(f"Gradio {gr.__version__}")
         logger.debug(f"{paths.script_path}")
+        # Don't spam config-files to console
+        logger.removeHandler(console_handler)
         with open(cmd_opts.ui_config_file, "r") as f:
             logger.debug(f.read())
         with open(cmd_opts.ui_settings_file, "r") as f:
             logger.debug(f.read())
+        logger.addHandler(console_handler)
         logger.debug(os.path.realpath(__file__))
         logger.debug([str(tab) for tab in tabs_list])
         logger.debug(f"db_version: {db_version}")
@@ -455,7 +454,7 @@ def traverse_all_files(curr_path, image_list, tab_base_tag_box, img_path_depth) 
     return image_list
 
 def cache_exif(fileinfos):
-    global finfo_exif, exif_cache, finfo_aes, aes_cache, finfo_image_reward, image_reward_cache
+    global exif_cache, aes_cache
 
     if yappi_do:
         import yappi
@@ -472,17 +471,11 @@ def cache_exif(fileinfos):
             found_exif = False
             found_aes = False
             if fi_info[0] in exif_cache:
-                finfo_exif[fi_info[0]] = exif_cache[fi_info[0]]
                 found_exif = True
             if fi_info[0] in aes_cache:
-                finfo_aes[fi_info[0]] = aes_cache[fi_info[0]]
                 found_aes = True
-            if fi_info[0] in image_reward_cache:
-                finfo_image_reward[fi_info[0]] = image_reward_cache[fi_info[0]]
             if not found_exif or not found_aes:
-                finfo_exif[fi_info[0]] = "0"
                 exif_cache[fi_info[0]] = "0"
-                finfo_aes[fi_info[0]] = "0"
                 aes_cache[fi_info[0]] = "0"
                 try:
                     image = Image.open(fi_info[0])
@@ -509,7 +502,6 @@ def cache_exif(fileinfos):
                     else:
                         raise
                 if allExif:
-                    finfo_exif[fi_info[0]] = allExif
                     exif_cache[fi_info[0]] = allExif
                     wib_db.update_exif_data(conn, fi_info[0], allExif)
                     new_exif = new_exif + 1
@@ -519,7 +511,6 @@ def cache_exif(fileinfos):
                         aes_value = m.group(1)
                     else:
                         aes_value = "0"
-                    finfo_aes[fi_info[0]] = aes_value
                     aes_cache[fi_info[0]] = aes_value
                     wib_db.update_exif_data_by_key(conn, fi_info[0], "aesthetic_score", aes_value)
                     new_aes = new_aes + 1
@@ -530,7 +521,6 @@ def cache_exif(fileinfos):
                         with open(filename) as f:
                             for line in f:
                                 geninfo += line
-                        finfo_exif[fi_info[0]] = geninfo
                         exif_cache[fi_info[0]] = geninfo
                         wib_db.update_exif_data_by_key(conn, fi_info[0], geninfo)
                         new_exif = new_exif + 1
@@ -540,21 +530,18 @@ def cache_exif(fileinfos):
                             aes_value = m.group(1)
                         else:
                             aes_value = "0"
-                        finfo_aes[fi_info[0]] = aes_value
                         aes_cache[fi_info[0]] = aes_value
                         wib_db.update_exif_data_by_key(conn, fi_info[0], "aesthetic_score", aes_value)
                         new_aes = new_aes + 1
                     except Exception:
                         logger.warning(f"cache_exif: No EXIF in image or txt file for {fi_info[0]}")
                         # Saved with defaults to not scan it again next time
-                        finfo_exif[fi_info[0]] = "0"
                         exif_cache[fi_info[0]] = "0"
                         allExif = "0"
                         wib_db.update_exif_data(conn, fi_info[0], allExif)
                         new_exif = new_exif + 1
 
                         aes_value = "0"
-                        finfo_aes[fi_info[0]] = aes_value
                         aes_cache[fi_info[0]] = aes_value
                         wib_db.update_exif_data_by_key(conn, fi_info[0], "aesthetic_score", aes_value)
                         new_aes = new_aes + 1
@@ -573,16 +560,12 @@ def cache_exif(fileinfos):
     logger.debug(f"cache_exif: {new_exif}/{len(fileinfos)} cache_aes: {new_aes}/{len(fileinfos)} {round(cache_exif_end - cache_exif_start, 1)} seconds")
 
 def exif_rebuild(maint_wait):
-    global finfo_exif, exif_cache, finfo_aes, aes_cache, finfo_image_reward, image_reward_cache
+    global exif_cache, aes_cache
     if opts.image_browser_scan_exif:
         logger.debug("Rebuild start")
         exif_dirs = wib_db.get_exif_dirs()
-        finfo_aes = {}
-        finfo_image_reward = {}
         exif_cache = {}
-        finfo_exif = {}
         aes_cache = {}
-        image_reward_cache = {}
         for key, value in exif_dirs.items():
             if os.path.exists(key):
                 print(f"Rebuilding {key}")
@@ -596,13 +579,11 @@ def exif_rebuild(maint_wait):
     return maint_wait, maint_last_msg
 
 def exif_delete_0(maint_wait):
-    global finfo_exif, exif_cache, finfo_aes, aes_cache
+    global exif_cache, aes_cache
     if opts.image_browser_scan_exif:
         conn, cursor = wib_db.transaction_begin()
         wib_db.delete_exif_0(cursor)
         wib_db.transaction_end(conn, cursor)
-        finfo_aes = {}
-        finfo_exif = {}
         exif_cache = wib_db.load_exif_data(exif_cache)
         aes_cache = wib_db.load_aes_data(aes_cache)
         maint_last_msg = "Delete finished"
@@ -612,7 +593,7 @@ def exif_delete_0(maint_wait):
     return maint_wait, maint_last_msg
 
 def exif_update_dirs(maint_update_dirs_from, maint_update_dirs_to, maint_wait):
-    global exif_cache, aes_cache, image_reward_cache
+    global exif_cache, aes_cache
     if maint_update_dirs_from == "":
         maint_last_msg = "From is empty"
     elif maint_update_dirs_to == "":
@@ -769,12 +750,12 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
                     print(f"Regex error: {e}")
             if (use_regex and not regex_error) or not use_regex:
                 if negative_prompt_search == "Yes":
-                    fileinfos = [x for x in fileinfos if exif_search(exif_keyword, finfo_exif[x[0]], use_regex, case_sensitive)]
+                    fileinfos = [x for x in fileinfos if exif_search(exif_keyword, exif_cache[x[0]], use_regex, case_sensitive)]
                 else:
                     result = []
                     for file_info in fileinfos:
                         file_name = file_info[0]
-                        file_exif = finfo_exif[file_name]
+                        file_exif = exif_cache[file_name]
                         file_exif_lc = file_exif.lower()
                         start_index = file_exif_lc.find(np)
                         end_index = file_exif.find("\n", start_index)
@@ -852,7 +833,7 @@ def get_all_images(dir_name, sort_by, sort_order, keyword, tab_base_tag_box, img
         filenames = [finfo for finfo in fileinfos]
     else:
         sort_values = {}
-        exif_info = dict(finfo_exif)
+        exif_info = dict(exif_cache)
         if exif_info:
             for k, v in exif_info.items():
                 match = re.search(r'(?<='+ sort_by + ":" ').*?(?=(,|$))', v, flags=re.DOTALL|re.IGNORECASE)
@@ -970,7 +951,21 @@ def get_image_page(img_path, page_index, filenames, keyword, sort_by, sort_order
 def get_current_file(tab_base_tag_box, num, page_index, filenames):
     file = filenames[int(num) + int((page_index - 1) * num_of_imgs_per_page)]
     return file
-    
+
+def pnginfo2html(pnginfo, items):
+    items = {**{'parameters': pnginfo}, **items}
+
+    info = ''
+    for key, text in items.items():
+        info += f"""
+            <div>
+            <p><b>{plaintext_to_html(str(key))}</b></p>
+            <p>{plaintext_to_html(str(text))}</p>
+            </div>
+            """.strip()+"\n"
+
+    return info
+
 def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_switch, image_gallery):
     logger.debug(f"show_image_info: tab_base_tag_box, num, page_index, len(filenames), num_of_imgs_per_page: {tab_base_tag_box}, {num}, {page_index}, {len(filenames)}, {num_of_imgs_per_page}")
     if len(filenames) == 0:
@@ -992,12 +987,17 @@ def show_image_info(tab_base_tag_box, num, page_index, filenames, turn_page_swit
         else:
             file = filenames[file_num]
             tm =   "<div style='color:#999' align='right'>" + time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.path.getmtime(file))) + "</div>"
-            try:
-                with Image.open(file) as image:
-                    _, geninfo, info = modules.extras.run_pnginfo(image)
-            except UnidentifiedImageError as e:
-                info = ""
-                logger.warning(f"UnidentifiedImageError: {e}")
+            pnginfo = exif_cache.get(file)
+            if pnginfo and not opts.image_browser_info_add:
+                items = {}
+                info = pnginfo2html(pnginfo, items)
+            else:
+                try:
+                    with Image.open(file) as image:
+                        _, geninfo, info = modules.extras.run_pnginfo(image)
+                except UnidentifiedImageError as e:
+                    info = ""
+                    logger.warning(f"UnidentifiedImageError: {e}")
             if opts.image_browser_use_thumbnail:
                 image_gallery = [image['name'] for image in image_gallery]
                 image_gallery[int(num)] = filenames[file_num]
@@ -1100,7 +1100,7 @@ def generate_image_reward(filenames, turn_page_switch, aes_filter_min, aes_filte
     return -turn_page_switch, aes_filter_min, aes_filter_max
             
 def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
-    global init, exif_cache, aes_cache, image_reward_cache, openoutpaint, controlnet, js_dummy_return
+    global init, exif_cache, aes_cache, openoutpaint, controlnet, js_dummy_return
     dir_name = None
     others_dir = False
     maint = False
@@ -1112,7 +1112,6 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
     if init:
         exif_cache = wib_db.load_exif_data(exif_cache)
         aes_cache = wib_db.load_exif_data_by_key(aes_cache, "aesthetic_score", "Score")
-        image_reward_cache = wib_db.load_exif_data_by_key(image_reward_cache, "ImageRewardScore", "ImageRewardScore")
         init = False
     
     path_recorder, path_recorder_formatted, path_recorder_unformatted = read_path_recorder()
@@ -1191,7 +1190,8 @@ def create_tab(tab: ImageBrowserTab, current_gr_tab: gr.Tab):
                         with gr.Column(scale=3):
                             delete = gr.Button('Delete', elem_id=f"{tab.base_tag}_image_browser_del_img_btn")
                     with gr.Row() as info_add_panel:
-                        with gr.Accordion("Additional Generation Info", open=False):
+                        with gr.Box(visible=opts.image_browser_info_add):
+                            gr.HTML("<h3>Additional Generation Info</h3>")
                             img_file_info_add = gr.HTML()
 
                 with gr.Column(scale=1): 
@@ -1595,16 +1595,7 @@ def run_pnginfo(image, image_path, image_file_name):
         return '', '', '', '', ''
     try:
         geninfo, items = images.read_info_from_image(image)
-        items = {**{'parameters': geninfo}, **items}
-
-        info = ''
-        for key, text in items.items():
-            info += f"""
-                <div>
-                <p><b>{plaintext_to_html(str(key))}</b></p>
-                <p>{plaintext_to_html(str(text))}</p>
-                </div>
-                """.strip()+"\n"
+        info = pnginfo2html(geninfo, items)
     except UnidentifiedImageError as e:
         geninfo = None
         info = ""
@@ -1716,6 +1707,7 @@ def on_ui_settings():
         ("image_browser_img_tooltips", None, True, "Enable thumbnail tooltips"),
         ("image_browser_scoring_type", None, "aesthetic_score", "Default scoring type", gr.Dropdown, lambda: {"choices": ["aesthetic_score", "ImageReward Score"]}),
         ("image_browser_show_progress", None, True, "Show progress indicator"),
+        ("image_browser_info_add", None, False, "Show Additional Generation Info"),        
     ]
 
     section = ('image-browser', "Image Browser")
